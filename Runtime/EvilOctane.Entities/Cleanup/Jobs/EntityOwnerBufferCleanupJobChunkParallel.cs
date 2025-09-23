@@ -10,7 +10,7 @@ using Unity.Entities.LowLevel.Unsafe;
 namespace EvilOctane.Entities
 {
     [BurstCompile]
-    public unsafe struct EntityOwnerBufferCleanupJobChunk<TEntityOwnerElement, TAllocatedTag> : IJobChunk
+    public unsafe struct EntityOwnerBufferCleanupJobChunkParallel<TEntityOwnerElement, TAllocatedTag> : IJobChunk
         where TEntityOwnerElement : unmanaged, IEntityOwnerBufferElementData
         where TAllocatedTag : unmanaged, ICleanupComponentAllocatedTag
     {
@@ -23,7 +23,7 @@ namespace EvilOctane.Entities
         public BufferTypeHandle<TEntityOwnerElement> EntityOwnerBufferTypeHandle;
 
         public AllocatorManager.AllocatorHandle TempAllocator;
-        public EntityCommandBuffer CommandBuffer;
+        public EntityCommandBuffer.ParallelWriter CommandBuffer;
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
@@ -38,13 +38,13 @@ namespace EvilOctane.Entities
             if (Hint.Likely(!entitiesToDestroyList.IsEmpty))
             {
                 // Destroy
-                CommandBuffer.DestroyEntity(entitiesToDestroyList.AsSpan());
+                CommandBuffer.DestroyEntity(unfilteredChunkIndex, entitiesToDestroyList.AsSpan());
             }
 
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
             // Clean up
-            CommandBuffer.RemoveComponent<TEntityOwnerElement>(entityPtr, chunk.Count);
+            CommandBuffer.RemoveComponent<TEntityOwnerElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
         }
     }
 }

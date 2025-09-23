@@ -2,7 +2,6 @@ using Unity.Assertions;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
 
@@ -27,10 +26,8 @@ namespace EvilOctane.Entities
         {
             Assert.IsFalse(useEnabledMask);
 
-            Entity* entityPtr = chunk.GetNativeArray(EntityTypeHandle).GetReadOnlyPtr();
-
-            Assert.AreEqual(sizeof(Entity), sizeof(TOwnerEntityComponent));
-            Entity* ownerEntityPtr = (Entity*)chunk.GetComponentDataPtrRO(ref OwnerEntityComponentTypeHandle);
+            Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
+            Entity* ownerEntityPtr = chunk.GetComponentDataPtrROReinterpret<TOwnerEntityComponent, Entity>(ref OwnerEntityComponentTypeHandle);
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {

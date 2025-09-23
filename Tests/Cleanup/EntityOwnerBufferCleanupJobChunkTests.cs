@@ -7,17 +7,20 @@ using Unity.Entities;
 using Unity.Jobs;
 
 [assembly: RegisterGenericJobType(typeof(EntityOwnerBufferCleanupJobChunk<EntityOwnerBufferElement, CleanupComponentAllocatedTag>))]
+[assembly: RegisterGenericJobType(typeof(EntityOwnerBufferCleanupJobChunkParallel<EntityOwnerBufferElement, CleanupComponentAllocatedTag>))]
 
 namespace EvilOctane.Entities.Tests
 {
     public class EntityOwnerBufferCleanupJobChunkTests
     {
         [Test]
-        public void DoTest()
+        public void DoTest([Values(true, false)] bool runParallel)
         {
             using World world = new("Test World", WorldFlags.None, Allocator.TempJob);
 
             SystemHandle systemHandle = world.CreateSystem<EntityOwnerBufferCleanupSystem>();
+            world.Unmanaged.GetUnsafeSystemRef<EntityOwnerBufferCleanupSystem>(systemHandle).RunParallel = runParallel;
+
             world.CreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(systemHandle);
 
             Entity ownerEntity = world.EntityManager.CreateEntity();
@@ -53,6 +56,8 @@ namespace EvilOctane.Entities.Tests
     [DisableAutoCreation]
     public partial struct EntityOwnerBufferCleanupSystem : ISystem
     {
+        public bool RunParallel;
+
         [BurstCompile(CompileSynchronously = true)]
         public void OnUpdate(ref SystemState state)
         {
@@ -65,14 +70,28 @@ namespace EvilOctane.Entities.Tests
 
             EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
 
-            new EntityOwnerBufferCleanupJobChunk<EntityOwnerBufferElement, CleanupComponentAllocatedTag>()
+            if (RunParallel)
             {
-                EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
-                EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentAllocatedTag>(isReadOnly: true),
-                EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(),
-                TempAllocator = state.WorldUpdateAllocator,
-                CommandBuffer = commandBuffer
-            }.Run(query);
+                new EntityOwnerBufferCleanupJobChunkParallel<EntityOwnerBufferElement, CleanupComponentAllocatedTag>()
+                {
+                    EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
+                    EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentAllocatedTag>(isReadOnly: true),
+                    EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(isReadOnly: true),
+                    TempAllocator = state.WorldUpdateAllocator,
+                    CommandBuffer = commandBuffer.AsParallelWriter()
+                }.ScheduleParallel(query, new JobHandle()).Complete();
+            }
+            else
+            {
+                new EntityOwnerBufferCleanupJobChunk<EntityOwnerBufferElement, CleanupComponentAllocatedTag>()
+                {
+                    EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
+                    EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentAllocatedTag>(isReadOnly: true),
+                    EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(isReadOnly: true),
+                    TempAllocator = state.WorldUpdateAllocator,
+                    CommandBuffer = commandBuffer
+                }.Run(query);
+            }
 
             commandBuffer.Playback(state.EntityManager);
         }

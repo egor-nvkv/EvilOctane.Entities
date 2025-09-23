@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
-using static System.Runtime.CompilerServices.Unsafe;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 
 namespace Unity.Entities.LowLevel.Unsafe
 {
@@ -10,7 +10,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         public static UnsafeUntypedBufferAccessor AsUntyped<T>(this BufferAccessor<T> self)
             where T : unmanaged, IBufferElementData
         {
-            ref BufferAccessorExposed<T> exposed = ref As<BufferAccessor<T>, BufferAccessorExposed<T>>(ref self);
+            ref BufferAccessorExposed<T> exposed = ref Reinterpret<BufferAccessor<T>, BufferAccessorExposed<T>>(ref self);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new UnsafeUntypedBufferAccessor(exposed.m_BasePointer, exposed.m_Length, exposed.m_Stride, sizeof(T), UnsafeUtility.AlignOf<T>(), exposed.m_InternalCapacity, self.IsReadOnly, exposed.m_Safety0, exposed.m_ArrayInvalidationSafety);

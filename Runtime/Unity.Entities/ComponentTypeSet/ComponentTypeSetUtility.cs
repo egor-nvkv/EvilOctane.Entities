@@ -5,6 +5,7 @@ using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Mathematics;
 using static System.Runtime.CompilerServices.Unsafe;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 
 namespace Unity.Entities
 {
@@ -27,7 +28,7 @@ namespace Unity.Entities
             mutable.m_masks = new ComponentTypeSet.Masks(mutable._sorted);
 
             CheckForDuplicates(mutable._sorted);
-            return As<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
+            return Reinterpret<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -53,7 +54,7 @@ namespace Unity.Entities
             mutable.m_masks = new ComponentTypeSet.Masks(mutable._sorted);
 
             CheckForDuplicates(mutable._sorted);
-            return As<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
+            return Reinterpret<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -85,7 +86,7 @@ namespace Unity.Entities
             mutable.m_masks = new ComponentTypeSet.Masks(mutable._sorted);
 
             CheckForDuplicates(mutable._sorted);
-            return As<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
+            return Reinterpret<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -125,7 +126,7 @@ namespace Unity.Entities
             mutable.m_masks = new ComponentTypeSet.Masks(mutable._sorted);
 
             CheckForDuplicates(mutable._sorted);
-            return As<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
+            return Reinterpret<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -170,7 +171,7 @@ namespace Unity.Entities
             mutable.m_masks = new ComponentTypeSet.Masks(mutable._sorted);
 
             CheckForDuplicates(mutable._sorted);
-            return As<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
+            return Reinterpret<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -222,7 +223,7 @@ namespace Unity.Entities
             mutable.m_masks = new ComponentTypeSet.Masks(mutable._sorted);
 
             CheckForDuplicates(mutable._sorted);
-            return As<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
+            return Reinterpret<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -279,7 +280,7 @@ namespace Unity.Entities
             mutable.m_masks = new ComponentTypeSet.Masks(mutable._sorted);
 
             CheckForDuplicates(mutable._sorted);
-            return As<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
+            return Reinterpret<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -311,7 +312,7 @@ namespace Unity.Entities
                 if (Hint.Unlikely(prev == current))
                 {
                     FixedString128Bytes typeStr = sorted[i].ToFixedString();
-                    throw new ArgumentException($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"{typeStr}\"");
+                    throw new ArgumentException($"ComponentTypeSet cannot contain duplicate types. Remove all but one occurrence of \"{typeStr}\"");
                 }
 
                 prev = current;

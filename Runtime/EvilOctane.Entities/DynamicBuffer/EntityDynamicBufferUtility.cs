@@ -7,7 +7,7 @@ using Unity.Entities.LowLevel.Unsafe;
 
 namespace EvilOctane.Entities
 {
-    public static class EntityBufferUtility
+    public static class EntityDynamicBufferUtility
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UnsafeList<Entity> ExtractEntityList<T>(BufferAccessor<T> bufferAccessor, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)

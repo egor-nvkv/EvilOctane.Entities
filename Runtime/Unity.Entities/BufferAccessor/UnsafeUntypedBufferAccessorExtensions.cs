@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
-using static System.Runtime.CompilerServices.Unsafe;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 
 namespace Unity.Entities.LowLevel.Unsafe
 {
@@ -25,7 +25,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         public static BufferAccessor<T> Reinterpret<T>(this UnsafeUntypedBufferAccessor self, int index, bool readOnly = false)
             where T : unmanaged, IBufferElementData
         {
-            ref UnsafeUntypedBufferAccessorExposed exposed = ref As<UnsafeUntypedBufferAccessor, UnsafeUntypedBufferAccessorExposed>(ref self);
+            ref UnsafeUntypedBufferAccessorExposed exposed = ref Reinterpret<UnsafeUntypedBufferAccessor, UnsafeUntypedBufferAccessorExposed>(ref self);
             CheckReinterpretArgs<T>(ref exposed);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -49,7 +49,7 @@ namespace Unity.Entities.LowLevel.Unsafe
                 self.GetUnsafePtr(index);
             }
 #endif
-            ref UnsafeUntypedBufferAccessorExposed exposed = ref As<UnsafeUntypedBufferAccessor, UnsafeUntypedBufferAccessorExposed>(ref self);
+            ref UnsafeUntypedBufferAccessorExposed exposed = ref Reinterpret<UnsafeUntypedBufferAccessor, UnsafeUntypedBufferAccessorExposed>(ref self);
             CheckReinterpretArgs<T>(ref exposed);
 
             BufferHeader* hdr = (BufferHeader*)(exposed.m_Pointer + (index * exposed.m_Stride));
@@ -65,7 +65,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         public static UnsafeSpan<T> GetSpanReinterpret<T>(this UnsafeUntypedBufferAccessor self, int index, bool readOnly = false)
             where T : unmanaged
         {
-            ref UnsafeUntypedBufferAccessorExposed exposed = ref As<UnsafeUntypedBufferAccessor, UnsafeUntypedBufferAccessorExposed>(ref self);
+            ref UnsafeUntypedBufferAccessorExposed exposed = ref Reinterpret<UnsafeUntypedBufferAccessor, UnsafeUntypedBufferAccessorExposed>(ref self);
             CheckReinterpretArgs<T>(ref exposed);
 
             void* ptr = readOnly ?
