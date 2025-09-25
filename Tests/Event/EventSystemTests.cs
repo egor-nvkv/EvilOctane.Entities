@@ -9,8 +9,8 @@ namespace EvilOctane.Entities.Tests
 {
     public unsafe class EventSystemTests
     {
-        private static readonly int[] eventFirerCountArray = { 1, 8, 16 };
-        private static readonly int[] eventListenerCountArray = { 1, 16, 256 };
+        private static readonly int[] eventFirerCountArray = { 1, 16, 32 };
+        private static readonly int[] eventListenerCountArray = { 1, 16, 32 };
         private static readonly int[] eventCountArray = { 1, 16, 64 };
 
         private static int CreateEventId(int eventCount, int eventFirerIndex, int eventIndex)
@@ -84,8 +84,8 @@ namespace EvilOctane.Entities.Tests
             InitializationSystemGroup group = world.CreateSystemManaged<InitializationSystemGroup>();
             group.AddSystemToUpdateList(world.CreateSystem<BeginInitializationEntityCommandBufferSystem>());
 
-            SystemHandle eventSystemHandle = world.CreateSystem<EventSystem>();
-            group.AddSystemToUpdateList(eventSystemHandle);
+            group.AddSystemToUpdateList(world.CreateSystem<EventListenerSystem>());
+            group.AddSystemToUpdateList(world.CreateSystem<EventFirerSystem>());
 
             return world;
         }
@@ -207,11 +207,11 @@ namespace EvilOctane.Entities.Tests
             // and in the same order they were fired
 
             int eventIndex = 0;
-            EventReceiveBuffer.Element previousReceivedEvent = eventReceiveBuffer[eventIndex];
 
             for (; eventIndex < eventReceiveBuffer.Length; ++eventIndex)
             {
                 EventReceiveBuffer.Element firstReceivedEvent = eventReceiveBuffer[eventIndex];
+                EventReceiveBuffer.Element previousReceivedEvent = firstReceivedEvent;
 
                 // Find Firer
                 int eventFirerIndex = eventFirerEntities.IndexOf(firstReceivedEvent.EventFirerEntity);
@@ -366,7 +366,7 @@ namespace EvilOctane.Entities.Tests
         }
     }
 
-    public struct EventDataComponent : IComponentData, IEquatable<EventDataComponent>
+    public struct EventDataComponent : IComponentData, IEventComponent, IEquatable<EventDataComponent>
     {
         public FixedString32Bytes Data;
 
@@ -381,7 +381,7 @@ namespace EvilOctane.Entities.Tests
         }
     }
 
-    public struct EventDataBufferElement : IBufferElementData, IEquatable<EventDataBufferElement>
+    public struct EventDataBufferElement : IBufferElementData, IEventComponent, IEquatable<EventDataBufferElement>
     {
         public int Data;
 

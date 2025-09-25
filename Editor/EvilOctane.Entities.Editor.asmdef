@@ -1,0 +1,19 @@
+{
+    "name": "EvilOctane.Entities.Editor",
+    "rootNamespace": "EvilOctane.Entities.Editor",
+    "references": [
+        "GUID:b03fccd973c1ee249b0c8380221d64a3",
+        "GUID:b46779583a009f04ba9f5f31d0e7e6ac"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -11,12 +11,22 @@ namespace EvilOctane.Entities
         // Firer
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ComponentTypeSet GetEventFirerComponentTypeSet()
+        public static ComponentTypeSet GetEventFirerComponentTypeSet(bool includeAllocatedTag = true)
         {
-            return ComponentTypeSetUtility.Create<
+            return includeAllocatedTag ?
+                ComponentTypeSetUtility.Create<
                 // Allocated Tag
                 CleanupComponentAllocatedTag,
 
+                // Event Buffer
+                EventBuffer.EntityElement,
+                EventBuffer.TypeElement,
+
+                // Subscription Registry
+                EventSubscriptionRegistry.Component,
+                EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement>() :
+
+                ComponentTypeSetUtility.Create<
                 // Event Buffer
                 EventBuffer.EntityElement,
                 EventBuffer.TypeElement,
@@ -44,13 +54,44 @@ namespace EvilOctane.Entities
 
         // Listener
 
+#if !EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ComponentType GetEventListenerComponentType()
+        {
+            return ComponentType.ReadWrite<EventReceiveBuffer.Element>();
+        }
+#endif
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentTypeSet GetEventListenerComponentTypeSet()
         {
             return ComponentTypeSetUtility.Create<
                 // Event Receive Buffer
-                EventReceiveBuffer.Element,
-                EventReceiveBuffer.LockComponent>();
+                EventReceiveBuffer.Element
+
+#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
+                ,
+                EventReceiveBuffer.LockComponent
+#endif
+                >();
+        }
+
+        public static void AddEventListenerComponents(EntityCommandBuffer commandBuffer, Entity eventListenerEntity)
+        {
+#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
+            commandBuffer.AddComponent(eventListenerEntity, GetEventListenerComponentTypeSet());
+#else
+            commandBuffer.AddComponent(eventListenerEntity, GetEventListenerComponentType());
+#endif
+        }
+
+        public static void AddEventListenerComponents(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventListenerEntity)
+        {
+#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
+            commandBuffer.AddComponent(sortKey, eventListenerEntity, GetEventListenerComponentTypeSet());
+#else
+            commandBuffer.AddComponent(sortKey, eventListenerEntity, GetEventListenerComponentType());
+#endif
         }
 
         // Subscribe
@@ -168,7 +209,7 @@ namespace EvilOctane.Entities
         // Fire
 
         public static Entity FireEvent<T>(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, T eventComponentData)
-            where T : unmanaged, IComponentData
+            where T : unmanaged, IComponentData, IEventComponent
         {
             // Create Entity
             Entity eventEntity = commandBuffer.CreateEntity();
@@ -176,20 +217,14 @@ namespace EvilOctane.Entities
             // Add Event Data
             commandBuffer.AddComponent(eventEntity, eventComponentData);
 
-            // Append to Event Buffer
-            TypeIndex eventTypeIndex = RegisterEvent<T>(commandBuffer, eventFirerEntity, eventEntity);
-
-#if !DOTS_DISABLE_DEBUG_NAMES
-            // Set Name
-            FixedString64Bytes eventEntityName = CreateEventEntityName(eventTypeIndex);
-            commandBuffer.SetName(eventEntity, eventEntityName);
-#endif
+            // Register Event
+            RegisterEvent(commandBuffer, eventFirerEntity, eventEntity, TypeManager.GetTypeIndex<T>());
 
             return eventEntity;
         }
 
         public static Entity FireEvent<T>(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity, T eventComponentData)
-            where T : unmanaged, IComponentData
+            where T : unmanaged, IComponentData, IEventComponent
         {
             // Create Entity
             Entity eventEntity = commandBuffer.CreateEntity(sortKey);
@@ -197,20 +232,14 @@ namespace EvilOctane.Entities
             // Add Event Data
             commandBuffer.AddComponent(sortKey, eventEntity, eventComponentData);
 
-            // Append to Event Buffer
-            TypeIndex eventTypeIndex = RegisterEvent<T>(commandBuffer, sortKey, eventFirerEntity, eventEntity);
-
-#if !DOTS_DISABLE_DEBUG_NAMES
-            // Set Name
-            FixedString64Bytes eventEntityName = CreateEventEntityName(eventTypeIndex);
-            commandBuffer.SetName(sortKey, eventEntity, eventEntityName);
-#endif
+            // Register Event
+            RegisterEvent(commandBuffer, sortKey, eventFirerEntity, eventEntity, TypeManager.GetTypeIndex<T>());
 
             return eventEntity;
         }
 
         public static Entity FireEvent<T>(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, out DynamicBuffer<T> eventDataBuffer)
-            where T : unmanaged, IBufferElementData
+            where T : unmanaged, IBufferElementData, IEventComponent
         {
             // Create Entity
             Entity eventEntity = commandBuffer.CreateEntity();
@@ -218,20 +247,14 @@ namespace EvilOctane.Entities
             // Add Event Data Buffer
             eventDataBuffer = commandBuffer.AddBuffer<T>(eventEntity);
 
-            // Append to Event Buffer
-            TypeIndex eventTypeIndex = RegisterEvent<T>(commandBuffer, eventFirerEntity, eventEntity);
-
-#if !DOTS_DISABLE_DEBUG_NAMES
-            // Set Name
-            FixedString64Bytes eventEntityName = CreateEventEntityName(eventTypeIndex);
-            commandBuffer.SetName(eventEntity, eventEntityName);
-#endif
+            // Register Event
+            RegisterEvent(commandBuffer, eventFirerEntity, eventEntity, TypeManager.GetTypeIndex<T>());
 
             return eventEntity;
         }
 
         public static Entity FireEvent<T>(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity, out DynamicBuffer<T> eventDataBuffer)
-            where T : unmanaged, IBufferElementData
+            where T : unmanaged, IBufferElementData, IEventComponent
         {
             // Create Entity
             Entity eventEntity = commandBuffer.CreateEntity(sortKey);
@@ -239,14 +262,22 @@ namespace EvilOctane.Entities
             // Add Event Data Buffer
             eventDataBuffer = commandBuffer.AddBuffer<T>(sortKey, eventEntity);
 
-            // Append to Event Buffer
-            TypeIndex eventTypeIndex = RegisterEvent<T>(commandBuffer, sortKey, eventFirerEntity, eventEntity);
+            // Register Event
+            RegisterEvent(commandBuffer, sortKey, eventFirerEntity, eventEntity, TypeManager.GetTypeIndex<T>());
 
-#if !DOTS_DISABLE_DEBUG_NAMES
-            // Set Name
-            FixedString64Bytes eventEntityName = CreateEventEntityName(eventTypeIndex);
-            commandBuffer.SetName(sortKey, eventEntity, eventEntityName);
-#endif
+            return eventEntity;
+        }
+
+        public static Entity FireEvent(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, ComponentType eventComponentType)
+        {
+            // Create Entity
+            Entity eventEntity = commandBuffer.CreateEntity();
+
+            // Add Event Component
+            commandBuffer.AddComponent(eventEntity, eventComponentType);
+
+            // Register Event
+            RegisterEvent(commandBuffer, eventFirerEntity, eventEntity, eventComponentType.TypeIndex);
 
             return eventEntity;
         }
@@ -267,41 +298,51 @@ namespace EvilOctane.Entities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static TypeIndex RegisterEvent<T>(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, Entity eventEntity)
-            where T : unmanaged
+        private static void RegisterEvent(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, Entity eventEntity, TypeIndex eventTypeIndex)
         {
             commandBuffer.AppendToBuffer(eventFirerEntity, new EventBuffer.EntityElement()
             {
                 EventEntity = eventEntity
             });
 
-            TypeIndex eventTypeIndex = TypeManager.GetTypeIndex<T>();
-
             commandBuffer.AppendToBuffer(eventFirerEntity, new EventBuffer.TypeElement()
             {
                 EventTypeIndex = eventTypeIndex
             });
 
-            return eventTypeIndex;
+#if !DOTS_DISABLE_DEBUG_NAMES
+            // Set Name
+            FixedString64Bytes eventEntityName = CreateEventEntityName(eventTypeIndex);
+            commandBuffer.SetName(eventEntity, eventEntityName);
+#endif
+
+#if ENABLE_PROFILER
+            ++EventSystemProfiler.EventsFiredCounter.Data.Value;
+#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static TypeIndex RegisterEvent<T>(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity, Entity eventEntity)
-            where T : unmanaged
+        private static void RegisterEvent(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity, Entity eventEntity, TypeIndex eventTypeIndex)
         {
             commandBuffer.AppendToBuffer(sortKey, eventFirerEntity, new EventBuffer.EntityElement()
             {
                 EventEntity = eventEntity
             });
 
-            TypeIndex eventTypeIndex = TypeManager.GetTypeIndex<T>();
-
             commandBuffer.AppendToBuffer(sortKey, eventFirerEntity, new EventBuffer.TypeElement()
             {
                 EventTypeIndex = eventTypeIndex
             });
 
-            return eventTypeIndex;
+#if !DOTS_DISABLE_DEBUG_NAMES
+            // Set Name
+            FixedString64Bytes eventEntityName = CreateEventEntityName(eventTypeIndex);
+            commandBuffer.SetName(sortKey, eventEntity, eventEntityName);
+#endif
+
+#if ENABLE_PROFILER
+            ++EventSystemProfiler.EventsFiredCounter.Data.Value;
+#endif
         }
     }
 }

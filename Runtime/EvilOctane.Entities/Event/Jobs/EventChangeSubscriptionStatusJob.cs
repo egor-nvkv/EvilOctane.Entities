@@ -1,4 +1,3 @@
-using System;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
@@ -35,9 +34,9 @@ namespace EvilOctane.Entities.Internal
             {
                 if (changeStatus.Selector == EventSubscribeUnsubscribeSelector.Subscribe)
                 {
-                    bool typeIndexVisited = typeIndexSetHelper.TryAddNoResize(changeStatus.EventTypeIndex) < 0;
+                    _ = typeIndexSetHelper.TryAddNoResize(changeStatus.EventTypeIndex, out bool added);
 
-                    if (typeIndexVisited)
+                    if (!added)
                     {
                         // Multiple subscribes to the same Type Index
                         continue;
@@ -61,43 +60,35 @@ namespace EvilOctane.Entities.Internal
             Entity listenerEntity,
             TypeIndex eventTypeIndex)
         {
-            HashMapHelperRef<TypeIndex> eventSubscriptionRegistryHelper = eventSubscriptionRegistry.GetHelperRef();
-            int eventTypeIndexInRegistry = eventSubscriptionRegistryHelper.Find(eventTypeIndex);
+            ref ListenerList listenerList = ref eventSubscriptionRegistry.GetHelperRef().GetOrAddValue<ListenerList>(eventTypeIndex, out bool added);
 
-            if (eventTypeIndexInRegistry >= 0)
+            if (added)
+            {
+                // No subscriptions for this Event Type
+
+                listenerList = new(1);
+
+                // Subscribe
+                listenerList.AddListener(listenerEntity, noResize: true);
+            }
+            else
             {
                 // Subscriptions exist for this Event Type
-                ListenerList listenerList = eventSubscriptionRegistryHelper.GetValue<ListenerList>(eventTypeIndexInRegistry);
 
-                bool alreadySubscribed = listenerList.AsSpan().Contains(listenerEntity);
+                bool alreadySubscribed = listenerList.IsSubscribed(listenerEntity);
 
                 if (Hint.Unlikely(alreadySubscribed))
                 {
                     // Already subscribed
+
+#if ENABLE_PROFILER
+                    ++EventSystemProfiler.DuplicateSubscribesCounter.Data.Value;
+#endif
                     return;
                 }
 
-                UnsafeList<Entity> listenerListRaw = listenerList.AsUnsafeList();
-
                 // Subscribe
-                listenerListRaw.EnsureSlack(1);
-                listenerListRaw.AddNoResize(listenerEntity);
-
-                // Update Listener list
-                listenerList.OverrideFromUnsafeList(listenerListRaw);
-                eventSubscriptionRegistryHelper.SetValue(eventTypeIndexInRegistry, listenerList);
-            }
-            else
-            {
-                // No subscriptions for this Event Type
-                ListenerList listenerList = new(1);
-
-                // Subscribe
-                listenerList.AsUnsafeList().AddNoResize(listenerEntity);
-                ++listenerList.Length;
-
-                // Register Listener list
-                eventSubscriptionRegistryHelper.AddUncheckedNoResize(eventTypeIndex, listenerList);
+                listenerList.AddListener(listenerEntity);
             }
         }
 
@@ -106,39 +97,41 @@ namespace EvilOctane.Entities.Internal
             Entity listenerEntity,
             TypeIndex eventTypeIndex)
         {
-            HashMapHelperRef<TypeIndex> eventSubscriptionRegistryHelper = eventSubscriptionRegistry.GetHelperRef();
-            int eventTypeIndexInRegistry = eventSubscriptionRegistryHelper.Find(eventTypeIndex);
+            ref ListenerList listenerList = ref eventSubscriptionRegistry.GetHelperRef().TryGetValueRef<ListenerList>(eventTypeIndex, out bool exists);
 
-            if (Hint.Unlikely(eventTypeIndexInRegistry < 0))
+            if (Hint.Unlikely(!exists))
             {
                 // No subscriptions for this Event Type
+
+#if ENABLE_PROFILER
+                ++EventSystemProfiler.PhantomUnsubscribesCounter.Data.Value;
+#endif
                 return;
             }
 
-            ListenerList listenerList = eventSubscriptionRegistryHelper.GetValue<ListenerList>(eventTypeIndexInRegistry);
-            int listenerIndex = listenerList.AsUnsafeList().IndexOf(listenerEntity);
+            int listenerIndex = listenerList.FindListenerIndex(listenerEntity);
 
             if (Hint.Unlikely(listenerIndex < 0))
             {
                 // Lister not subscribed
+
+#if ENABLE_PROFILER
+                ++EventSystemProfiler.PhantomUnsubscribesCounter.Data.Value;
+#endif
                 return;
             }
 
             if (listenerList.Length > 1)
             {
                 // Unsubscribe
-                listenerList.AsUnsafeList().RemoveAtSwapBack(listenerIndex);
-                --listenerList.Length;
-
-                // Update Listener list
-                eventSubscriptionRegistryHelper.SetValue(eventTypeIndexInRegistry, listenerList);
+                listenerList.RemoveListener(listenerIndex);
             }
             else
             {
                 // Last Listener unsubscribed
 
                 listenerList.Dispose();
-                _ = eventSubscriptionRegistryHelper.Remove(eventTypeIndex);
+                _ = eventSubscriptionRegistry.GetHelperRef().Remove(eventTypeIndex);
             }
         }
 

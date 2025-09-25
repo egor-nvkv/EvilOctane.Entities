@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
+using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -23,13 +24,16 @@ namespace EvilOctane.Entities.Internal
 
             public void Dispose()
             {
-                foreach (KVPair<TypeIndex, ListenerList> kvPair in EventTypeIndexListenerListMap)
+                if (EventTypeIndexListenerListMap.IsCreated)
                 {
-                    kvPair.AssumeIndexIsValid();
-                    kvPair.Value.Dispose();
-                }
+                    foreach (KVPair<TypeIndex, ListenerList> kvPair in EventTypeIndexListenerListMap)
+                    {
+                        kvPair.AssumeIndexIsValid();
+                        kvPair.Value.Dispose();
+                    }
 
-                EventTypeIndexListenerListMap.GetHelperRef().DisposeMap(Allocator);
+                    EventTypeIndexListenerListMap.GetHelperRef().DisposeMap(Allocator);
+                }
             }
 
             public unsafe struct ListenerList : IDisposable
@@ -52,29 +56,59 @@ namespace EvilOctane.Entities.Internal
                 }
 
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                public readonly bool IsSubscribed(Entity listenerEntity)
+                {
+                    return AsSpan().Contains(listenerEntity);
+                }
+
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                public readonly int FindListenerIndex(Entity listenerEntity)
+                {
+                    return AsSpan().IndexOf(listenerEntity);
+                }
+
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 public readonly UnsafeSpan<Entity> AsSpan()
                 {
                     return new UnsafeSpan<Entity>(Ptr, Length);
                 }
 
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                public readonly UnsafeList<Entity> AsUnsafeList()
+                public void AddListener(Entity listenerEntity, bool noResize = false)
                 {
-                    return new UnsafeList<Entity>()
+                    if (noResize)
                     {
-                        Ptr = Ptr,
-                        m_length = Length,
-                        m_capacity = Capacity,
-                        Allocator = Allocator
-                    };
+                        Assert.IsTrue(Capacity > Length);
+                    }
+                    else
+                    {
+                        UntypedUnsafeListMutable list = new()
+                        {
+                            Ptr = Ptr,
+                            m_length = Length,
+                            m_capacity = Capacity,
+                            Allocator = Allocator
+                        };
+
+                        MemoryExposed.EnsureListSlack<Entity>(ref list, 1);
+
+                        Ptr = (Entity*)list.Ptr;
+                        Capacity = list.m_capacity;
+                    }
+
+                    Ptr[Length] = listenerEntity;
+                    ++Length;
                 }
 
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                public void OverrideFromUnsafeList(UnsafeList<Entity> list)
+                public void RemoveListener(int index)
                 {
-                    Ptr = list.Ptr;
-                    Length = list.m_length;
-                    Capacity = list.m_capacity;
+                    Assert.IsTrue((uint)index < (uint)Length);
+
+                    // Listener order is not important
+                    Ptr[index] = Ptr[Length - 1];
+
+                    --Length;
                 }
             }
         }

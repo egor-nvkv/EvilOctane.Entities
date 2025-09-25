@@ -12,6 +12,20 @@ namespace Unity.Entities
     public static class ComponentTypeSetUtility
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ComponentTypeSet Create<T0>()
+        {
+            SkipInit(out ComponentTypeSetMutable mutable);
+
+            TypeIndex typeIndex0 = TypeManager.GetTypeIndex<T0>();
+
+            mutable._sorted.Length = 1;
+            mutable._sorted[0] = typeIndex0;
+
+            mutable.m_masks = new ComponentTypeSet.Masks(mutable._sorted);
+            return Reinterpret<ComponentTypeSetMutable, ComponentTypeSet>(ref mutable);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentTypeSet Create<T0, T1>()
         {
             SkipInit(out ComponentTypeSetMutable mutable);
