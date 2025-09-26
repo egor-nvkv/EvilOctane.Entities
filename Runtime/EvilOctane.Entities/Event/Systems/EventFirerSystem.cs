@@ -41,7 +41,7 @@ namespace EvilOctane.Entities
                 .WithPresentRW<EventSubscriptionRegistry.Component>()
 
                 // Missing the following:
-                // .WithPresent<CleanupComponentAllocatedTag>()
+                // .WithPresent<CleanupComponentsAliveTag>()
                 // so that Events from destroyed Entities also get routed
 
                 .Build();
@@ -54,7 +54,7 @@ namespace EvilOctane.Entities
                     EventSubscriptionRegistry.Component,
                     EventBuffer.EntityElement,
                     EventBuffer.TypeElement>()
-                .WithAbsent<CleanupComponentAllocatedTag>()
+                .WithAbsent<CleanupComponentsAliveTag>()
                 .Build();
         }
 
@@ -178,7 +178,7 @@ namespace EvilOctane.Entities
             state.Dependency = new EventFirerCleanupJob()
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
-                EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentAllocatedTag>(isReadOnly: true),
+                EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentsAliveTag>(isReadOnly: true),
                 EventSubscriptionRegistryComponentTypeHandle = SystemAPI.GetComponentTypeHandle<EventSubscriptionRegistry.Component>(),
                 EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.EntityElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator,

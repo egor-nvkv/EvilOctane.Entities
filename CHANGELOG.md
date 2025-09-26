@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.10.2] - 2025-09-27
+
+Quality of life (time) improvements
+
 ## [0.10.1] - 2025-09-26
 
 Event system updates

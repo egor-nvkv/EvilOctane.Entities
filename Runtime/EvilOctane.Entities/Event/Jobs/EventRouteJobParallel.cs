@@ -84,7 +84,7 @@ namespace EvilOctane.Entities.Internal
             }
 
             // Clear Event Types
-            DynamicBufferUtility.ClearBuffersIgnoreFilter(in chunk, ref EventTypeBufferTypeHandle);
+            DynamicBufferUtility.ClearAllBuffersInChunk(in chunk, ref EventTypeBufferTypeHandle);
         }
 
         private void FillListenerEventLists(

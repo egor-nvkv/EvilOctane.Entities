@@ -16,7 +16,7 @@ namespace EvilOctane.Entities.Internal
         [ReadOnly]
         public EntityTypeHandle EntityTypeHandle;
         [ReadOnly]
-        public ComponentLookup<CleanupComponentAllocatedTag> EntityLookup;
+        public ComponentLookup<CleanupComponentsAliveTag> EntityLookup;
 
         public ComponentTypeHandle<EventSubscriptionRegistry.Component> EventSubscriptionRegistryComponentTypeHandle;
 

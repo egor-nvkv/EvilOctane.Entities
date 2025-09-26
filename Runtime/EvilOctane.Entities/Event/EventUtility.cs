@@ -16,7 +16,7 @@ namespace EvilOctane.Entities
             return includeAllocatedTag ?
                 ComponentTypeSetUtility.Create<
                 // Allocated Tag
-                CleanupComponentAllocatedTag,
+                CleanupComponentsAliveTag,
 
                 // Event Buffer
                 EventBuffer.EntityElement,

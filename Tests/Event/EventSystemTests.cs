@@ -166,7 +166,7 @@ namespace EvilOctane.Entities.Tests
         private static void CleanupEventFirers(World world, NativeArray<Entity> eventFirerEntities)
         {
             EntityCommandBuffer commandBuffer = new(world.UpdateAllocator.ToAllocator);
-            commandBuffer.RemoveComponent<CleanupComponentAllocatedTag>(eventFirerEntities);
+            commandBuffer.RemoveComponent<CleanupComponentsAliveTag>(eventFirerEntities);
             commandBuffer.Playback(world.EntityManager);
 
             // Update for cleanup to run

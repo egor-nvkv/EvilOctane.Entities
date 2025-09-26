@@ -6,7 +6,7 @@ namespace EvilOctane.Entities
     public static partial class DynamicBufferUtility
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ClearBuffersIgnoreFilter<T>(in ArchetypeChunk chunk, ref BufferTypeHandle<T> bufferTypeHandle)
+        public static void ClearAllBuffersInChunk<T>(in ArchetypeChunk chunk, ref BufferTypeHandle<T> bufferTypeHandle)
             where T : unmanaged, IBufferElementData
         {
             BufferAccessor<T> bufferAccessor = chunk.GetBufferAccessorRW(ref bufferTypeHandle);
