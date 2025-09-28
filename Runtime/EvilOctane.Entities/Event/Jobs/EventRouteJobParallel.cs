@@ -11,7 +11,7 @@ using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
 using EventList = Unity.Collections.LowLevel.Unsafe.UnsafeList<EvilOctane.Entities.EventReceiveBuffer.Element>;
 using EventSpan = Unity.Collections.LowLevel.Unsafe.UnsafeSpan<EvilOctane.Entities.EventReceiveBuffer.Element>;
-using ListenerList = EvilOctane.Entities.Internal.EventSubscriptionRegistry.Component.ListenerList;
+using ListenerList = EvilOctane.Entities.Internal.EventSubscriptionRegistryComponent.ListenerList;
 
 #if EVIL_OCTANE_ENABLE_EVENT_REROUTING
 using static System.Runtime.CompilerServices.Unsafe;
@@ -25,7 +25,7 @@ namespace EvilOctane.Entities.Internal
         [ReadOnly]
         public EntityTypeHandle EntityTypeHandle;
 
-        public ComponentTypeHandle<EventSubscriptionRegistry.Component> EventSubscriptionRegistryComponentTypeHandle;
+        public ComponentTypeHandle<EventSubscriptionRegistryComponent> EventSubscriptionRegistryComponentTypeHandle;
         public BufferTypeHandle<EventBuffer.EntityElement> EventEntityBufferTypeHandle;
         public BufferTypeHandle<EventBuffer.TypeElement> EventTypeBufferTypeHandle;
 
@@ -53,7 +53,7 @@ namespace EvilOctane.Entities.Internal
 
             BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor = chunk.GetBufferAccessorRW(ref EventEntityBufferTypeHandle);
             BufferAccessor<EventBuffer.TypeElement> eventTypeBufferAccessor = chunk.GetBufferAccessorRW(ref EventTypeBufferTypeHandle);
-            EventSubscriptionRegistry.Component* eventSubscriptionRegistryPtr = chunk.GetComponentDataPtrRW(ref EventSubscriptionRegistryComponentTypeHandle);
+            EventSubscriptionRegistryComponent* eventSubscriptionRegistryPtr = chunk.GetComponentDataPtrRW(ref EventSubscriptionRegistryComponentTypeHandle);
 
             // Fill map
 
@@ -91,7 +91,7 @@ namespace EvilOctane.Entities.Internal
             Entity* entityPtr,
             BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor,
             BufferAccessor<EventBuffer.TypeElement> eventTypeBufferAccessor,
-            EventSubscriptionRegistry.Component* eventSubscriptionRegistryPtr,
+            EventSubscriptionRegistryComponent* eventSubscriptionRegistryPtr,
             ref UnsafeHashMap<Entity, EventList> listenerEventListMap)
         {
             for (int entityIndex = 0; entityIndex != eventEntityBufferAccessor.Length; ++entityIndex)
@@ -104,7 +104,7 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                ref EventSubscriptionRegistry.Component eventSubscriptionRegistry = ref eventSubscriptionRegistryPtr[entityIndex];
+                ref EventSubscriptionRegistryComponent eventSubscriptionRegistry = ref eventSubscriptionRegistryPtr[entityIndex];
 
                 if (Hint.Unlikely(eventSubscriptionRegistry.IsEmpty))
                 {
@@ -134,7 +134,7 @@ namespace EvilOctane.Entities.Internal
             Entity eventFirerEntity,
             UnsafeSpan<EventBuffer.EntityElement> eventSpanRO,
             UnsafeSpan<EventBuffer.TypeElement> eventTypeSpanRO,
-            ref EventSubscriptionRegistry.Component eventSubscriptionRegistry,
+            ref EventSubscriptionRegistryComponent eventSubscriptionRegistry,
             ref UnsafeHashMap<Entity, EventList> listenerEventListMap)
         {
             HashMapHelperRef<TypeIndex> eventSubscriptionRegistryHelper = eventSubscriptionRegistry.EventTypeIndexListenerListMap.GetHelperRef();

@@ -8,7 +8,10 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
-using ListenerList = EvilOctane.Entities.Internal.EventSubscriptionRegistry.Component.ListenerList;
+using EventSubscriberList = Unity.Collections.LowLevel.Unsafe.InlineList<Unity.Entities.Entity>;
+using EventSubscriberListHeader = Unity.Collections.LowLevel.Unsafe.InlineListHeader<Unity.Entities.Entity>;
+using EventSubscriptionMap = Unity.Collections.LowLevel.Unsafe.InlineHashMap<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventSubscriberListOffset>;
+using EventSubscriptionMapHeader = Unity.Collections.LowLevel.Unsafe.InlineHashMapHeader<Unity.Entities.TypeIndex>;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -18,9 +21,14 @@ namespace EvilOctane.Entities.Internal
         [ReadOnly]
         public EntityTypeHandle EntityTypeHandle;
 
-        public ComponentTypeHandle<EventSubscriptionRegistry.Component> EventSubscriptionRegistryComponentTypeHandle;
+        // Firer
+
+        public BufferTypeHandle<EventSubscriptionRegistry.StorageBufferElement> EventSubscriptionRegistryStorageBufferTypeHandle;
+
         public BufferTypeHandle<EventBuffer.EntityElement> EventEntityBufferTypeHandle;
         public BufferTypeHandle<EventBuffer.TypeElement> EventTypeBufferTypeHandle;
+
+        // Listener
 
         public BufferLookup<EventReceiveBuffer.Element> EventReceiveBufferLookup;
 
@@ -33,17 +41,17 @@ namespace EvilOctane.Entities.Internal
 
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
+            BufferAccessor<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorageBufferAccessor = chunk.GetBufferAccessorRW(ref EventSubscriptionRegistryStorageBufferTypeHandle);
             BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor = chunk.GetBufferAccessorRW(ref EventEntityBufferTypeHandle);
             BufferAccessor<EventBuffer.TypeElement> eventTypeBufferAccessor = chunk.GetBufferAccessorRW(ref EventTypeBufferTypeHandle);
-            EventSubscriptionRegistry.Component* eventSubscriptionRegistryPtr = chunk.GetComponentDataPtrRW(ref EventSubscriptionRegistryComponentTypeHandle);
 
             // Route Events
 
             RouteEvents(
                 entityPtr,
+                eventSubscriptionRegistryStorageBufferAccessor,
                 eventEntityBufferAccessor,
-                eventTypeBufferAccessor,
-                eventSubscriptionRegistryPtr);
+                eventTypeBufferAccessor);
 
             // Clear Event Buffers
 
@@ -57,14 +65,14 @@ namespace EvilOctane.Entities.Internal
             }
 
             // Clear Event Types
-            DynamicBufferUtility.ClearBuffersIgnoreFilter(in chunk, ref EventTypeBufferTypeHandle);
+            DynamicBufferUtility.ClearAllBuffersInChunk(in chunk, ref EventTypeBufferTypeHandle);
         }
 
         private void RouteEvents(
             Entity* entityPtr,
+            BufferAccessor<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorageBufferAccessor,
             BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor,
-            BufferAccessor<EventBuffer.TypeElement> eventTypeBufferAccessor,
-            EventSubscriptionRegistry.Component* eventSubscriptionRegistryPtr)
+            BufferAccessor<EventBuffer.TypeElement> eventTypeBufferAccessor)
         {
             for (int entityIndex = 0; entityIndex != eventEntityBufferAccessor.Length; ++entityIndex)
             {
@@ -76,47 +84,50 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                ref EventSubscriptionRegistry.Component eventSubscriptionRegistry = ref eventSubscriptionRegistryPtr[entityIndex];
-
-                if (Hint.Unlikely(eventSubscriptionRegistry.IsEmpty))
-                {
-                    // No subscriptions
-
-#if ENABLE_PROFILER
-                    EventSystemProfiler.EventsNotRoutedCounter.Data.Value += eventSpanRO.Length;
-#endif
-                    continue;
-                }
+                DynamicBuffer<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorageBuffer = eventSubscriptionRegistryStorageBufferAccessor[entityIndex];
+                EventSubscriptionMapHeader* subscriptionMap = EventSubscriptionRegistry.GetSubscriptionMap(eventSubscriptionRegistryStorageBuffer, readOnly: true);
 
                 UnsafeSpan<EventBuffer.TypeElement> eventTypeSpanRO = eventTypeBufferAccessor[entityIndex].AsSpanRO();
                 Assert.AreEqual(eventSpanRO.Length, eventTypeSpanRO.Length);
 
-                Entity eventFirerEntity = entityPtr[entityIndex];
-
                 RouteEvents(
-                    eventFirerEntity,
+                    entityPtr[entityIndex],
+                    subscriptionMap,
                     eventSpanRO,
-                    eventTypeSpanRO,
-                    ref eventSubscriptionRegistry);
+                    eventTypeSpanRO);
             }
         }
 
         private void RouteEvents(
-            Entity eventFirerEntity,
+            Entity entity,
+            EventSubscriptionMapHeader* subscriptionMap,
             UnsafeSpan<EventBuffer.EntityElement> eventSpanRO,
-            UnsafeSpan<EventBuffer.TypeElement> eventTypeSpanRO,
-            ref EventSubscriptionRegistry.Component eventSubscriptionRegistry)
+            UnsafeSpan<EventBuffer.TypeElement> eventTypeSpanRO)
         {
-            HashMapHelperRef<TypeIndex> eventSubscriptionRegistryHelper = eventSubscriptionRegistry.EventTypeIndexListenerListMap.GetHelperRef();
+            nint firstListOffset = EventSubscriptionRegistry.GetFirstSubscriberListOffset(subscriptionMap);
 
             for (int eventIndex = 0; eventIndex != eventSpanRO.Length; ++eventIndex)
             {
                 TypeIndex eventTypeIndex = eventTypeSpanRO[eventIndex].EventTypeIndex;
+                bool eventTypeRegistered = EventSubscriptionMap.TryGetValue(subscriptionMap, eventTypeIndex, out EventSubscriberListOffset subscriberListOffset);
+
+                if (Hint.Unlikely(!eventTypeRegistered))
+                {
+                    // Event Type not registered
+
+                    EventDebugUtility.LogFiredEventTypeNotRegistered(entity, eventTypeIndex);
+
+#if ENABLE_PROFILER
+                    ++EventSystemProfiler.EventsNotRoutedCounter.Data.Value;
+                    // TODO: misfired event profile counter
+#endif
+                    continue;
+                }
 
                 // Listeners to this Event Type
-                ref ListenerList listenerList = ref eventSubscriptionRegistryHelper.TryGetValueRef<ListenerList>(eventTypeIndex, out bool listenerListExists);
+                EventSubscriberListHeader* subscriberList = subscriberListOffset.GetList(subscriptionMap, firstListOffset);
 
-                if (!listenerListExists)
+                if (subscriberList->Length == 0)
                 {
                     // No subscriptions for this Event Type
 
@@ -132,16 +143,16 @@ namespace EvilOctane.Entities.Internal
                 bool eventRouted = false;
 #endif
 
-                for (int listerIndex = 0; listerIndex != listenerList.Length;)
+                for (int listerIndex = 0; listerIndex != subscriberList->Length;)
                 {
-                    Entity listenerEntity = listenerList.Ptr[listerIndex];
+                    Entity listenerEntity = EventSubscriberList.GetElementPointer(subscriberList)[listerIndex];
                     bool listenerExists = EventReceiveBufferLookup.EntityExists(listenerEntity);
 
                     if (Hint.Unlikely(!listenerExists))
                     {
                         // Listener destroyed
 
-                        listenerList.RemoveListener(listerIndex);
+                        EventSubscriberList.RemoveAtSwapBack(subscriberList, listerIndex);
 
 #if ENABLE_PROFILER
                         ++EventSystemProfiler.PhantomListenersCounter.Data.Value;
@@ -155,7 +166,7 @@ namespace EvilOctane.Entities.Internal
 
                     _ = receiveBuffer.Add(new EventReceiveBuffer.Element()
                     {
-                        EventFirerEntity = eventFirerEntity,
+                        EventFirerEntity = entity,
                         EventEntity = eventEntity
                     });
 
@@ -164,14 +175,6 @@ namespace EvilOctane.Entities.Internal
 #endif
 
                     ++listerIndex;
-                }
-
-                if (Hint.Unlikely(listenerList.Length == 0))
-                {
-                    // All Listeners destroyed
-
-                    listenerList.Dispose();
-                    _ = eventSubscriptionRegistryHelper.Remove(eventTypeIndex);
                 }
 
 #if ENABLE_PROFILER

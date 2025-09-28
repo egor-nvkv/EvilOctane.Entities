@@ -17,28 +17,33 @@ namespace EvilOctane.Entities
     [UpdateInGroup(typeof(InitializationSystemGroup), OrderFirst = true)]
     public partial struct EventFirerSystem : ISystem
     {
-        private EntityQuery changeSubscriptionStatusQuery;
+        private EntityQuery eventFirerSetupQuery;
+        private EntityQuery subscribeUnsubscribeQuery;
         private EntityQuery routeQuery;
         private EntityQuery eventFirerCleanupQuery;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            // 0
-            changeSubscriptionStatusQuery = SystemAPI.QueryBuilder()
-                .WithPresentRW<
-                    EventSubscriptionRegistry.Component,
-                    EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement>()
+            eventFirerSetupQuery = SystemAPI.QueryBuilder()
+                .WithPresent<EventSetup.FirerDeclaredEventTypeBufferElement>()
+                .WithAbsent<EventSubscriptionRegistry.StorageBufferElement>()
                 .Build();
 
-            changeSubscriptionStatusQuery.SetChangedVersionFilter<EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement>();
+            subscribeUnsubscribeQuery = SystemAPI.QueryBuilder()
+                .WithPresentRW<
+                    EventSubscriptionRegistry.StorageBufferElement,
+                    EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement>()
+                .Build();
 
-            // 1
+            subscribeUnsubscribeQuery.SetChangedVersionFilter<EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement>();
+
             routeQuery = SystemAPI.QueryBuilder()
+                .WithPresentRW<
+                    EventSubscriptionRegistry.StorageBufferElement>()
                 .WithPresent<
                     EventBuffer.EntityElement,
                     EventBuffer.TypeElement>()
-                .WithPresentRW<EventSubscriptionRegistry.Component>()
 
                 // Missing the following:
                 // .WithPresent<CleanupComponentsAliveTag>()
@@ -48,10 +53,9 @@ namespace EvilOctane.Entities
 
             routeQuery.SetChangedVersionFilter<EventBuffer.EntityElement>();
 
-            // 2
             eventFirerCleanupQuery = SystemAPI.QueryBuilder()
                 .WithAny<
-                    EventSubscriptionRegistry.Component,
+                    EventSubscriptionRegistry.StorageBufferElement,
                     EventBuffer.EntityElement,
                     EventBuffer.TypeElement>()
                 .WithAbsent<CleanupComponentsAliveTag>()
@@ -61,9 +65,14 @@ namespace EvilOctane.Entities
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            if (!changeSubscriptionStatusQuery.IsEmpty)
+            if (!eventFirerSetupQuery.IsEmptyIgnoreFilter)
             {
-                ScheduleChangeSubscriptionStatus(ref state);
+                ScheduleEventFirerSetup(ref state);
+            }
+
+            if (!subscribeUnsubscribeQuery.IsEmpty)
+            {
+                ScheduleSubscribeUnsubscribe(ref state);
             }
 
             bool routeQueryIsEmpty = routeQuery.IsEmpty;
@@ -77,56 +86,48 @@ namespace EvilOctane.Entities
 
             BeginInitializationEntityCommandBufferSystem.Singleton nextFrameCommandBufferSystem = SystemAPI.GetSingleton<BeginInitializationEntityCommandBufferSystem.Singleton>();
 
-            EntityCommandBuffer commandBuffer = nextFrameCommandBufferSystem.CreateCommandBuffer(state.WorldUnmanaged);
-            EntityCommandBuffer.ParallelWriter parallelWriter = commandBuffer.AsParallelWriter();
+            EntityCommandBuffer nextFrameCommandBuffer = nextFrameCommandBufferSystem.CreateCommandBuffer(state.WorldUnmanaged);
+            EntityCommandBuffer.ParallelWriter nextFrameParallelWriter = nextFrameCommandBuffer.AsParallelWriter();
 
             if (!routeQueryIsEmpty)
             {
 #if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
                 ScheduleEventRouteParallel(ref state, parallelWriter);
 #else
-                ScheduleEventRoute(ref state, commandBuffer);
+                ScheduleEventRoute(ref state, nextFrameCommandBuffer);
 #endif
             }
 
             if (!eventFirerCleanupQueryIsEmpty)
             {
-                ScheduleEventBufferCleanup(ref state, parallelWriter);
+                ScheduleEventFirerCleanup(ref state, nextFrameParallelWriter);
             }
         }
-
-#if UNITY_EDITOR
-        [BurstCompile]
-        public void OnDestroy(ref SystemState state)
-        {
-            // It looks like components holding malloc'ed memory
-            // need to be freed manually to prevent leaks
-
-            EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
-
-            foreach ((
-                RefRW<EventSubscriptionRegistry.Component> subscriptionRegistry,
-                Entity entity) in SystemAPI
-                .Query<RefRW<EventSubscriptionRegistry.Component>>()
-                .WithEntityAccess())
-            {
-                subscriptionRegistry.ValueRW.Dispose();
-                commandBuffer.RemoveComponent<EventSubscriptionRegistry.Component>(entity);
-            }
-
-            commandBuffer.Playback(state.EntityManager);
-        }
-#endif
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ScheduleChangeSubscriptionStatus(ref SystemState state)
+        private void ScheduleEventFirerSetup(ref SystemState state)
         {
-            state.Dependency = new EventChangeSubscriptionStatusJob()
+            EntityCommandBuffer commandBuffer = SystemAPI.GetSingleton<EndInitializationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
+
+            state.Dependency = new EventFirerSetupJob()
             {
-                EventSubscriptionRegistryComponentTypeHandle = SystemAPI.GetComponentTypeHandle<EventSubscriptionRegistry.Component>(),
-                EventSubscriptionRegistryChangeSubscriptionStatusBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement>(),
+                EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
+                SetupDeclaredEventTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSetup.FirerDeclaredEventTypeBufferElement>(isReadOnly: true),
+                TempAllocator = state.WorldUpdateAllocator,
+                CommandBuffer = commandBuffer.AsParallelWriter()
+            }.ScheduleParallel(eventFirerSetupQuery, state.Dependency);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void ScheduleSubscribeUnsubscribe(ref SystemState state)
+        {
+            state.Dependency = new EventFirerSubscribeUnsubscribeJob()
+            {
+                EventSubscriptionRegistryStorageBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSubscriptionRegistry.StorageBufferElement>(),
+                EventSubscriptionRegistrySubscribeUnsubscribeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement>(),
+                ListenerDeclaredEventTypeBufferLookup = SystemAPI.GetBufferLookup<EventSettings.ListenerDeclaredEventTypeBufferElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator
-            }.ScheduleParallel(changeSubscriptionStatusQuery, state.Dependency);
+            }.ScheduleParallel(subscribeUnsubscribeQuery, state.Dependency);
         }
 
 #if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
@@ -139,7 +140,7 @@ namespace EvilOctane.Entities
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
 
-                EventSubscriptionRegistryComponentTypeHandle = SystemAPI.GetComponentTypeHandle<EventSubscriptionRegistry.Component>(),
+                EventSubscriptionRegistryComponentTypeHandle = SystemAPI.GetComponentTypeHandle<EventSubscriptionRegistryComponent>(),
                 EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.EntityElement>(),
                 EventTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.TypeElement>(),
 
@@ -160,7 +161,7 @@ namespace EvilOctane.Entities
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
 
-                EventSubscriptionRegistryComponentTypeHandle = SystemAPI.GetComponentTypeHandle<EventSubscriptionRegistry.Component>(),
+                EventSubscriptionRegistryStorageBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSubscriptionRegistry.StorageBufferElement>(),
                 EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.EntityElement>(),
                 EventTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.TypeElement>(),
 
@@ -173,13 +174,12 @@ namespace EvilOctane.Entities
 #endif
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ScheduleEventBufferCleanup(ref SystemState state, EntityCommandBuffer.ParallelWriter commandBuffer)
+        private void ScheduleEventFirerCleanup(ref SystemState state, EntityCommandBuffer.ParallelWriter commandBuffer)
         {
             state.Dependency = new EventFirerCleanupJob()
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
                 EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentsAliveTag>(isReadOnly: true),
-                EventSubscriptionRegistryComponentTypeHandle = SystemAPI.GetComponentTypeHandle<EventSubscriptionRegistry.Component>(),
                 EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.EntityElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator,
                 CommandBuffer = commandBuffer

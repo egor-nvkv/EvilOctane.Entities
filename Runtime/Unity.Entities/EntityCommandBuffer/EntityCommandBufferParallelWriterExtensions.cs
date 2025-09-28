@@ -30,6 +30,64 @@ namespace Unity.Entities.LowLevel.Unsafe
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, Entity* entities, int length)
+        {
+            AddComponent(self, sortKey, entities, length, ComponentType.ReadWrite<T>());
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, UnsafeSpan<Entity> entities)
+        {
+            AddComponent<T>(self, sortKey, entities.Ptr, entities.Length);
+        }
+
+        public static void AddComponent(this EntityCommandBuffer.ParallelWriter self, int sortKey, Entity* entities, int length, ComponentType componentType)
+        {
+            CheckWriteAccess(self);
+
+            EntityCommandBufferChain* chain = GetThreadChain(self);
+            Entity* entitiesCopy = self.m_Data->CloneAndSearchForDeferredEntities(entities, length, out bool containsDeferredEntities);
+
+            _ = self.m_Data->AppendMultipleEntitiesComponentCommand(
+                chain,
+                sortKey,
+                ECBCommand.AddComponentForMultipleEntities,
+                entitiesCopy,
+                length,
+                containsDeferredEntities,
+                componentType);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddComponent(this EntityCommandBuffer.ParallelWriter self, int sortKey, UnsafeSpan<Entity> entities, ComponentType componentType)
+        {
+            AddComponent(self, sortKey, entities.Ptr, entities.Length, componentType);
+        }
+
+        public static void AddComponent(this EntityCommandBuffer.ParallelWriter self, int sortKey, Entity* entities, int length, ComponentTypeSet componentTypeSet)
+        {
+            CheckWriteAccess(self);
+
+            EntityCommandBufferChain* chain = GetThreadChain(self);
+            Entity* entitiesCopy = self.m_Data->CloneAndSearchForDeferredEntities(entities, length, out bool containsDeferredEntities);
+
+            _ = self.m_Data->AppendMultipleEntitiesMultipleComponentsCommand(
+                chain,
+                sortKey,
+                ECBCommand.AddMultipleComponentsForMultipleEntities,
+                entitiesCopy,
+                length,
+                containsDeferredEntities,
+                componentTypeSet);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddComponent(this EntityCommandBuffer.ParallelWriter self, int sortKey, UnsafeSpan<Entity> entities, ComponentTypeSet componentTypeSet)
+        {
+            AddComponent(self, sortKey, entities.Ptr, entities.Length, componentTypeSet);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void RemoveComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, Entity* entities, int length)
         {
             RemoveComponent(self, sortKey, entities, length, ComponentType.ReadWrite<T>());

@@ -18,8 +18,6 @@ namespace EvilOctane.Entities.Internal
         [ReadOnly]
         public ComponentLookup<CleanupComponentsAliveTag> EntityLookup;
 
-        public ComponentTypeHandle<EventSubscriptionRegistry.Component> EventSubscriptionRegistryComponentTypeHandle;
-
         [ReadOnly]
         public BufferTypeHandle<EventBuffer.EntityElement> EventEntityBufferTypeHandle;
 
@@ -29,19 +27,6 @@ namespace EvilOctane.Entities.Internal
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
             Assert.IsFalse(useEnabledMask);
-
-            // Event Subscription Registry 
-
-            if (Hint.Likely(chunk.Has<EventSubscriptionRegistry.Component>()))
-            {
-                EventSubscriptionRegistry.Component* eventSubscriptionRegistryPtr = chunk.GetComponentDataPtrRO(ref EventSubscriptionRegistryComponentTypeHandle);
-
-                for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
-                {
-                    // Dispose
-                    eventSubscriptionRegistryPtr[entityIndex].Dispose();
-                }
-            }
 
             // Event Entity Buffer
 

@@ -1,9 +1,12 @@
 using EvilOctane.Entities.Internal;
 using NUnit.Framework;
 using System;
+using System.Text.RegularExpressions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace EvilOctane.Entities.Tests
 {
@@ -13,34 +16,50 @@ namespace EvilOctane.Entities.Tests
         private static readonly int[] eventListenerCountArray = { 1, 16, 32 };
         private static readonly int[] eventCountArray = { 1, 16, 64 };
 
+        private static readonly Regex undeclaredTypeRegex = new("EventSystem.*UndeclaredEvent.*");
+
         private static int CreateEventId(int eventCount, int eventFirerIndex, int eventIndex)
         {
             return (eventFirerIndex * eventCount) + eventIndex;
         }
 
-        private static EventDataComponent GetComponentEvent0()
+        private static EventSingle GetSingleEvent()
         {
-            return new EventDataComponent()
+            return new EventSingle()
             {
-                Data = "test"
+                Data = "single event"
             };
         }
 
-        private static EventDataComponent GetComponentEvent1(int eventId)
+        private static EventSingle GetSingleEvent(int eventId)
         {
-            EventDataComponent result = new()
+            EventSingle result = new()
             {
-                Data = "hoge "
+                Data = "single event #"
             };
 
             _ = result.Data.Append(eventId);
             return result;
         }
 
-        private static void SetTwoEventDataBufferElements(Span<EventDataBufferElement> span, int eventId)
+        private static void SetTwoBufferEventElements(Span<EventBufferElement> span, int eventId)
         {
-            span[0] = new EventDataBufferElement() { Data = 123 };
-            span[1] = new EventDataBufferElement() { Data = eventId };
+            span[0] = new EventBufferElement() { Data = 315 };
+            span[1] = new EventBufferElement() { Data = eventId };
+        }
+
+        private static World CreateWorld()
+        {
+            World world = new("Test World", WorldFlags.None, Allocator.TempJob);
+
+            InitializationSystemGroup group = world.CreateSystemManaged<InitializationSystemGroup>();
+            group.AddSystemToUpdateList(world.CreateSystem<BeginInitializationEntityCommandBufferSystem>());
+            group.AddSystemToUpdateList(world.CreateSystem<EndInitializationEntityCommandBufferSystem>());
+
+            group.AddSystemToUpdateList(world.CreateSystem<EventListenerSystem>());
+            group.AddSystemToUpdateList(world.CreateSystem<EventFirerSystem>());
+
+            return world;
         }
 
         private static NativeArray<Entity> CreateEntities(EntityManager entityManager, ComponentTypeSet componentTypeSet, int entityCount, Allocator allocator = Allocator.Temp)
@@ -49,6 +68,19 @@ namespace EvilOctane.Entities.Tests
 
             NativeArray<ComponentType> componentTypes = componentTypeSet.GetComponentTypes(entityManager.WorldUnmanaged.UpdateAllocator.Handle);
             EntityArchetype entityArchetype = entityManager.CreateArchetype(componentTypes);
+
+            entityManager.CreateEntity(entityArchetype, entityArray);
+            return entityArray;
+        }
+
+        private static NativeArray<Entity> CreateEntities<T>(EntityManager entityManager, int entityCount, Allocator allocator = Allocator.Temp)
+        {
+            EntityArchetype entityArchetype = entityManager.CreateArchetype(stackalloc ComponentType[1]
+            {
+                ComponentType.ReadWrite<T>()
+            });
+
+            NativeArray<Entity> entityArray = new(entityCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             entityManager.CreateEntity(entityArchetype, entityArray);
             return entityArray;
@@ -77,19 +109,6 @@ namespace EvilOctane.Entities.Tests
             return result;
         }
 
-        private static World CreateWorld()
-        {
-            World world = new("Test World", WorldFlags.None, Allocator.TempJob);
-
-            InitializationSystemGroup group = world.CreateSystemManaged<InitializationSystemGroup>();
-            group.AddSystemToUpdateList(world.CreateSystem<BeginInitializationEntityCommandBufferSystem>());
-
-            group.AddSystemToUpdateList(world.CreateSystem<EventListenerSystem>());
-            group.AddSystemToUpdateList(world.CreateSystem<EventFirerSystem>());
-
-            return world;
-        }
-
         private static void CreateEventFirersAndListeners(EntityManager entityManager, int eventFirerCount, int eventListenerCount, Allocator allocator, out NativeArray<Entity> eventFirerEntities, out NativeArray<Entity> eventListenerEntities)
         {
             EntityCommandBuffer commandBuffer = new(entityManager.WorldUnmanaged.UpdateAllocator.ToAllocator);
@@ -103,14 +122,17 @@ namespace EvilOctane.Entities.Tests
             }
             else
             {
-                eventFirerEntities = CreateEntities(entityManager, EventUtility.GetEventFirerComponentTypeSet(), eventFirerCount, allocator);
+                // Create Listeners
+                eventFirerEntities = CreateEntities<EventSetup.FirerDeclaredEventTypeBufferElement>(entityManager, eventFirerCount, allocator);
 
                 // Set Up Firers
 
-                for (int eventFirerIndex = 0; eventFirerIndex < eventFirerCount; ++eventFirerIndex)
+                foreach (Entity eventFirerEntity in eventFirerEntities)
                 {
-                    Entity eventFirerEntity = eventFirerEntities[eventFirerIndex];
-                    EventUtility.SetUpEventFirerComponents(commandBuffer, eventFirerEntity);
+                    DynamicBuffer<EventSetup.FirerDeclaredEventTypeBufferElement> firerDeclaredEventTypeBuffer = commandBuffer.SetBuffer<EventSetup.FirerDeclaredEventTypeBufferElement>(eventFirerEntity);
+
+                    _ = firerDeclaredEventTypeBuffer.Add(EventSetup.FirerDeclaredEventTypeBufferElement.Default<EventSingle>());
+                    _ = firerDeclaredEventTypeBuffer.Add(EventSetup.FirerDeclaredEventTypeBufferElement.Default<EventBufferElement>());
                 }
             }
 
@@ -122,14 +144,11 @@ namespace EvilOctane.Entities.Tests
             else
             {
                 int totalEventListenerCount = eventListenerCount * 3;
-                eventListenerEntities = CreateEntities(entityManager, EventUtility.GetEventListenerComponentTypeSet(), totalEventListenerCount, allocator);
-            }
 
-            // Subscribe
+                // Create Listeners
+                eventListenerEntities = CreateEntities<EventSetup.ListenerDeclaredEventTypeBufferElement>(entityManager, totalEventListenerCount, allocator);
 
-            for (int eventFirerIndex = 0; eventFirerIndex < eventFirerCount; ++eventFirerIndex)
-            {
-                Entity eventFirerEntity = eventFirerEntities[eventFirerIndex];
+                // Set Up Listeners
 
                 for (int listenerIndex = 0; listenerIndex < eventListenerCount; ++listenerIndex)
                 {
@@ -141,21 +160,26 @@ namespace EvilOctane.Entities.Tests
 
                     // Listener 0
                     {
-                        // Component Event only
-                        EventUtility.SubscribeToEvent<EventDataComponent>(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                        // Single Event only
+                        DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeBuffer0 = commandBuffer.SetBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement>(eventListenerEntity0);
+
+                        _ = listenerDeclaredEventTypeBuffer0.Add(EventSetup.ListenerDeclaredEventTypeBufferElement.Create<EventSingle>());
                     }
 
                     // Listener 1
                     {
                         // Buffer Event only
-                        EventUtility.SubscribeToEvent<EventDataBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity1);
+                        DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeBuffer1 = commandBuffer.SetBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement>(eventListenerEntity1);
+
+                        _ = listenerDeclaredEventTypeBuffer1.Add(EventSetup.ListenerDeclaredEventTypeBufferElement.Create<EventBufferElement>());
                     }
 
                     // Listener 2
                     {
-                        // Both Events
-                        EventUtility.SubscribeToEvent<EventDataComponent>(commandBuffer, eventFirerEntity, eventListenerEntity2);
-                        EventUtility.SubscribeToEvent<EventDataBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                        // Single Event only
+                        DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeBuffer2 = commandBuffer.SetBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement>(eventListenerEntity2);
+
+                        _ = listenerDeclaredEventTypeBuffer2.Add(EventSetup.ListenerDeclaredEventTypeBufferElement.Create<EventSingle>());
                     }
                 }
             }
@@ -163,18 +187,60 @@ namespace EvilOctane.Entities.Tests
             commandBuffer.Playback(entityManager);
         }
 
-        private static void CleanupEventFirers(World world, NativeArray<Entity> eventFirerEntities)
+        private static void SubscribeToEvents(EntityManager entityManager, NativeArray<Entity> eventFirerEntities, NativeArray<Entity> eventListenerEntities, int eventListenerCount)
         {
-            EntityCommandBuffer commandBuffer = new(world.UpdateAllocator.ToAllocator);
-            commandBuffer.RemoveComponent<CleanupComponentsAliveTag>(eventFirerEntities);
-            commandBuffer.Playback(world.EntityManager);
+            EntityCommandBuffer commandBuffer = new(entityManager.WorldUnmanaged.UpdateAllocator.ToAllocator);
 
-            // Update for cleanup to run
-            world.Update();
+            foreach (Entity eventFirerEntity in eventFirerEntities)
+            {
+                for (int listenerIndex = 0; listenerIndex < eventListenerCount; ++listenerIndex)
+                {
+                    int eventListenerIndex = listenerIndex * 3;
+
+                    Entity eventListenerEntity0 = eventListenerEntities[eventListenerIndex];
+                    Entity eventListenerEntity1 = eventListenerEntities[eventListenerIndex + 1];
+                    Entity eventListenerEntity2 = eventListenerEntities[eventListenerIndex + 2];
+
+                    // Listener 0
+                    {
+                        // Auto
+                        EventUtility.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity0);
+
+                        // Duplicate
+                        EventUtility.SubscribeToEvent<EventSingle>(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                    }
+
+                    // Listener 1
+                    {
+                        // Auto
+                        EventUtility.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+                    }
+
+                    // Listener 2
+                    {
+                        // Auto
+                        EventUtility.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity2);
+
+                        // Custom
+                        EventUtility.SubscribeToEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                    }
+                }
+            }
+
+            commandBuffer.Playback(entityManager);
         }
 
-        private static void FireEvents(EntityCommandBuffer commandBuffer, NativeArray<Entity> eventFirerEntities, int eventCount)
+        private static void CleanupEventFirers(EntityManager entityManager, NativeArray<Entity> eventFirerEntities)
         {
+            EntityCommandBuffer commandBuffer = new(entityManager.World.UpdateAllocator.ToAllocator);
+            commandBuffer.RemoveComponent<CleanupComponentsAliveTag>(eventFirerEntities);
+            commandBuffer.Playback(entityManager);
+        }
+
+        private static void FireEvents(EntityManager entityManager, NativeArray<Entity> eventFirerEntities, int eventCount, bool expectErrorLog = true)
+        {
+            EntityCommandBuffer commandBuffer = new(entityManager.World.UpdateAllocator.ToAllocator);
+
             for (int eventFirerIndex = 0; eventFirerIndex < eventFirerEntities.Length; ++eventFirerIndex)
             {
                 Entity eventFirerEntity = eventFirerEntities[eventFirerIndex];
@@ -183,20 +249,33 @@ namespace EvilOctane.Entities.Tests
                 {
                     int eventId = CreateEventId(eventCount, eventFirerIndex, eventIndex);
 
-                    // Component Event
+                    // Undeclared Event
                     {
-                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, GetComponentEvent0());
-                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, GetComponentEvent1(eventId));
+                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, new UndeclaredEvent());
+
+                        if (expectErrorLog)
+                        {
+                            LogAssert.Expect(LogType.Error, undeclaredTypeRegex);
+                        }
+                    }
+
+                    // Single Event
+                    {
+                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent());
+                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent(eventId));
                     }
 
                     // Buffer Event
                     {
-                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, out DynamicBuffer<EventDataBufferElement> eventDataBuffer);
+                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, out DynamicBuffer<EventBufferElement> eventDataBuffer);
+
                         eventDataBuffer.ResizeUninitialized(2);
-                        SetTwoEventDataBufferElements(eventDataBuffer.AsSpanRW(), eventId);
+                        SetTwoBufferEventElements(eventDataBuffer.AsSpanRW(), eventId);
                     }
                 }
             }
+
+            commandBuffer.Playback(entityManager);
         }
 
         private static void AssertCorrectEventsGetReceivedInOrder(NativeArray<Entity> eventFirerEntities, NativeArray<UnsafeList<Entity>> eventEntityListPerEventFirer, DynamicBuffer<EventReceiveBuffer.Element> eventReceiveBuffer, int eventIndexOffset, int eventCount)
@@ -258,24 +337,22 @@ namespace EvilOctane.Entities.Tests
             EntityManager entityManager = world.EntityManager;
 
             CreateEventFirersAndListeners(entityManager, eventFirerCount, 0, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out NativeArray<Entity> eventListenerEntities);
+            world.Update();
 
             // Fire Events
-
-            EntityCommandBuffer commandBuffer = new(world.UpdateAllocator.ToAllocator);
-            FireEvents(commandBuffer, eventFirerEntities, eventCount);
-            commandBuffer.Playback(entityManager);
+            FireEvents(entityManager, eventFirerEntities, eventCount, expectErrorLog: false);
 
             // Get Event Entities
             NativeArray<UnsafeList<Entity>> eventEntityListPerEventFirer = GetAllEventEntities(entityManager, eventFirerEntities);
 
             // Check Event data
 
-            Span<EventDataBufferElement> actualBufferEventDataSpan = stackalloc EventDataBufferElement[2];
+            Span<EventBufferElement> actualBufferEventDataSpan = stackalloc EventBufferElement[2];
 
             for (int eventFirerIndex = 0; eventFirerIndex < eventFirerCount; ++eventFirerIndex)
             {
                 // To be safe
-                actualBufferEventDataSpan.Fill(new EventDataBufferElement());
+                actualBufferEventDataSpan.Fill(new EventBufferElement());
 
                 UnsafeList<Entity> eventList = eventEntityListPerEventFirer[eventFirerIndex];
 
@@ -283,20 +360,26 @@ namespace EvilOctane.Entities.Tests
                 {
                     int eventId = CreateEventId(eventCount, eventFirerIndex, eventIndex);
 
-                    Entity eventEntity0 = eventList[eventIndex * 3];
-                    Entity eventEntity1 = eventList[(eventIndex * 3) + 1];
-                    Entity eventEntity2 = eventList[(eventIndex * 3) + 2];
+                    Entity eventEntity0 = eventList[eventIndex * 4];
+                    Entity eventEntity1 = eventList[(eventIndex * 4) + 1];
+                    Entity eventEntity2 = eventList[(eventIndex * 4) + 2];
+                    Entity eventEntity3 = eventList[(eventIndex * 4) + 3];
 
-                    // Component Event
+                    // Undeclared Event
                     {
-                        Assert.AreEqual(GetComponentEvent0(), entityManager.GetComponentData<EventDataComponent>(eventEntity0), "Event has wrong data");
-                        Assert.AreEqual(GetComponentEvent1(eventId), entityManager.GetComponentData<EventDataComponent>(eventEntity1), "Event has wrong data");
+                        Assert.IsTrue(entityManager.HasComponent<UndeclaredEvent>(eventEntity0));
+                    }
+
+                    // Single Event
+                    {
+                        Assert.AreEqual(GetSingleEvent(), entityManager.GetComponentData<EventSingle>(eventEntity1), "Event has wrong data");
+                        Assert.AreEqual(GetSingleEvent(eventId), entityManager.GetComponentData<EventSingle>(eventEntity2), "Event has wrong data");
                     }
 
                     // Buffer Event
                     {
-                        SetTwoEventDataBufferElements(actualBufferEventDataSpan, eventId);
-                        DynamicBuffer<EventDataBufferElement> eventDataBuffer = entityManager.GetBuffer<EventDataBufferElement>(eventEntity2);
+                        SetTwoBufferEventElements(actualBufferEventDataSpan, eventId);
+                        DynamicBuffer<EventBufferElement> eventDataBuffer = entityManager.GetBuffer<EventBufferElement>(eventEntity3);
 
                         CollectionAssert.AreEqual(actualBufferEventDataSpan.ToArray(), eventDataBuffer.AsSpanRO().ToArray(), "Event has wrong data");
                     }
@@ -304,7 +387,44 @@ namespace EvilOctane.Entities.Tests
             }
 
             // Cleanup
-            CleanupEventFirers(world, eventFirerEntities);
+            CleanupEventFirers(entityManager, eventFirerEntities);
+        }
+
+        [Test]
+        public void TestEventEntitiesGetCleanedUp(
+            [ValueSource(nameof(eventFirerCountArray))] int eventFirerCount,
+            [ValueSource(nameof(eventCountArray))] int eventCount)
+        {
+            // Set up Entities
+
+            using World world = CreateWorld();
+            EntityManager entityManager = world.EntityManager;
+
+            CreateEventFirersAndListeners(entityManager, eventFirerCount, 0, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out NativeArray<Entity> eventListenerEntities);
+            world.Update();
+
+            // Fire Events
+            FireEvents(entityManager, eventFirerEntities, eventCount);
+
+            // Get Event Entities
+            NativeArray<UnsafeList<Entity>> eventEntityListPerEventFirer = GetAllEventEntities(entityManager, eventFirerEntities);
+
+            // Update to cleanup Event Entities
+            world.Update();
+            world.Update();
+
+            // Checks Event Entities were destroyed
+
+            foreach (UnsafeList<Entity> eventEntityList in eventEntityListPerEventFirer)
+            {
+                foreach (Entity eventEntity in eventEntityList)
+                {
+                    Assert.IsFalse(entityManager.Exists(eventEntity), "Event entity was not destroyed");
+                }
+            }
+
+            // Cleanup
+            CleanupEventFirers(entityManager, eventFirerEntities);
         }
 
         [Test]
@@ -319,12 +439,13 @@ namespace EvilOctane.Entities.Tests
             EntityManager entityManager = world.EntityManager;
 
             CreateEventFirersAndListeners(entityManager, eventFirerCount, eventListenerCount, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out NativeArray<Entity> eventListenerEntities);
+            world.Update();
+
+            // Subscribe
+            SubscribeToEvents(entityManager, eventFirerEntities, eventListenerEntities, eventListenerCount);
 
             // Fire Events
-
-            EntityCommandBuffer commandBuffer = new(world.UpdateAllocator.ToAllocator);
-            FireEvents(commandBuffer, eventFirerEntities, eventCount);
-            commandBuffer.Playback(entityManager);
+            FireEvents(entityManager, eventFirerEntities, eventCount);
 
             // Get Event Entities
             NativeArray<UnsafeList<Entity>> eventEntityListPerEventFirer = GetAllEventEntities(entityManager, eventFirerEntities);
@@ -362,15 +483,19 @@ namespace EvilOctane.Entities.Tests
             }
 
             // Cleanup
-            CleanupEventFirers(world, eventFirerEntities);
+            CleanupEventFirers(entityManager, eventFirerEntities);
         }
     }
 
-    public struct EventDataComponent : IComponentData, IEventComponent, IEquatable<EventDataComponent>
+    public struct UndeclaredEvent : IComponentData, IEventComponent
+    {
+    }
+
+    public struct EventSingle : IComponentData, IEventComponent, IEquatable<EventSingle>
     {
         public FixedString32Bytes Data;
 
-        public readonly bool Equals(EventDataComponent other)
+        public readonly bool Equals(EventSingle other)
         {
             return Data == other.Data;
         }
@@ -381,11 +506,11 @@ namespace EvilOctane.Entities.Tests
         }
     }
 
-    public struct EventDataBufferElement : IBufferElementData, IEventComponent, IEquatable<EventDataBufferElement>
+    public struct EventBufferElement : IBufferElementData, IEventComponent, IEquatable<EventBufferElement>
     {
         public int Data;
 
-        public readonly bool Equals(EventDataBufferElement other)
+        public readonly bool Equals(EventBufferElement other)
         {
             return Data == other.Data;
         }

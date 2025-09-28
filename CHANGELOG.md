@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.10.3] - 2025-09-29
+
+Event system now support Auto subscribe mode to declared event types
+
 ## [0.10.2] - 2025-09-27
 
 Quality of life (time) improvements

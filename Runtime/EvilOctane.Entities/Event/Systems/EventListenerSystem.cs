@@ -1,4 +1,5 @@
 using EvilOctane.Entities;
+using EvilOctane.Entities.Internal;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Entities;
@@ -12,11 +13,17 @@ namespace EvilOctane.Entities
     [UpdateInGroup(typeof(InitializationSystemGroup), OrderFirst = true)]
     public partial struct EventListenerSystem : ISystem
     {
+        private EntityQuery eventListenerSetupQuery;
         private EntityQuery receiveBufferClearQuery;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
+            eventListenerSetupQuery = SystemAPI.QueryBuilder()
+                .WithPresent<EventSetup.ListenerDeclaredEventTypeBufferElement>()
+                .WithAbsent<EventSettings.ListenerDeclaredEventTypeBufferElement>()
+                .Build();
+
             receiveBufferClearQuery = SystemAPI.QueryBuilder()
                 .WithPresentRW<EventReceiveBuffer.Element>()
                 .Build();
@@ -27,10 +34,29 @@ namespace EvilOctane.Entities
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
+            if (!eventListenerSetupQuery.IsEmpty)
+            {
+                ScheduleEventListenerSetup(ref state);
+            }
+
             if (!receiveBufferClearQuery.IsEmpty)
             {
                 ScheduleReceiveBufferClear(ref state);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void ScheduleEventListenerSetup(ref SystemState state)
+        {
+            EntityCommandBuffer commandBuffer = SystemAPI.GetSingleton<EndInitializationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
+
+            state.Dependency = new EventListenerSetupJob()
+            {
+                EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
+                SetupDeclaredEventTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSetup.ListenerDeclaredEventTypeBufferElement>(isReadOnly: true),
+                TempAllocator = state.WorldUpdateAllocator,
+                CommandBuffer = commandBuffer.AsParallelWriter()
+            }.ScheduleParallel(eventListenerSetupQuery, state.Dependency);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

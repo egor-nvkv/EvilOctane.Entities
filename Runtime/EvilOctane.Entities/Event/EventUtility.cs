@@ -23,8 +23,8 @@ namespace EvilOctane.Entities
                 EventBuffer.TypeElement,
 
                 // Subscription Registry
-                EventSubscriptionRegistry.Component,
-                EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement>() :
+                EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement,
+                EventSubscriptionRegistry.StorageBufferElement>() :
 
                 ComponentTypeSetUtility.Create<
                 // Event Buffer
@@ -32,41 +32,20 @@ namespace EvilOctane.Entities
                 EventBuffer.TypeElement,
 
                 // Subscription Registry
-                EventSubscriptionRegistry.Component,
-                EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement>();
-        }
-
-        public static void SetUpEventFirerComponents(EntityCommandBuffer commandBuffer, Entity eventFirerEntity)
-        {
-            commandBuffer.AddComponent(eventFirerEntity, GetEventFirerComponentTypeSet());
-
-            // Subscription Registry
-            commandBuffer.SetComponent(eventFirerEntity, new EventSubscriptionRegistry.Component(1));
-        }
-
-        public static void SetUpEventFirerComponents(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity)
-        {
-            commandBuffer.AddComponent(sortKey, eventFirerEntity, GetEventFirerComponentTypeSet());
-
-            // Subscription Registry
-            commandBuffer.SetComponent(sortKey, eventFirerEntity, new EventSubscriptionRegistry.Component(1));
+                EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement,
+                EventSubscriptionRegistry.StorageBufferElement>();
         }
 
         // Listener
-
-#if !EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ComponentType GetEventListenerComponentType()
-        {
-            return ComponentType.ReadWrite<EventReceiveBuffer.Element>();
-        }
-#endif
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentTypeSet GetEventListenerComponentTypeSet()
         {
             return ComponentTypeSetUtility.Create<
-                // Event Receive Buffer
+                // Settings
+                EventSettings.ListenerDeclaredEventTypeBufferElement,
+
+                // Receive Buffer
                 EventReceiveBuffer.Element
 
 #if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
@@ -78,23 +57,26 @@ namespace EvilOctane.Entities
 
         public static void AddEventListenerComponents(EntityCommandBuffer commandBuffer, Entity eventListenerEntity)
         {
-#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
             commandBuffer.AddComponent(eventListenerEntity, GetEventListenerComponentTypeSet());
-#else
-            commandBuffer.AddComponent(eventListenerEntity, GetEventListenerComponentType());
-#endif
         }
 
         public static void AddEventListenerComponents(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventListenerEntity)
         {
-#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
             commandBuffer.AddComponent(sortKey, eventListenerEntity, GetEventListenerComponentTypeSet());
-#else
-            commandBuffer.AddComponent(sortKey, eventListenerEntity, GetEventListenerComponentType());
-#endif
         }
 
         // Subscribe
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SubscribeToDeclaredEvents(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, Entity eventListenerEntity)
+        {
+            commandBuffer.AppendToBuffer(eventFirerEntity, new EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement()
+            {
+                ListenerEntity = eventListenerEntity,
+                EventTypeIndex = TypeIndex.Null,
+                Mode = EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeAuto
+            });
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SubscribeToEvent<T>(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, Entity eventListenerEntity)
@@ -111,22 +93,22 @@ namespace EvilOctane.Entities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SubscribeToEvent(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, Entity eventListenerEntity, ComponentType eventComponentType)
         {
-            commandBuffer.AppendToBuffer(eventFirerEntity, new EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement()
+            commandBuffer.AppendToBuffer(eventFirerEntity, new EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement()
             {
                 ListenerEntity = eventListenerEntity,
                 EventTypeIndex = eventComponentType.TypeIndex,
-                Selector = EventSubscribeUnsubscribeSelector.Subscribe
+                Mode = EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeManual
             });
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SubscribeToEvent(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity, Entity eventListenerEntity, ComponentType eventComponentType)
         {
-            commandBuffer.AppendToBuffer(sortKey, eventFirerEntity, new EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement()
+            commandBuffer.AppendToBuffer(sortKey, eventFirerEntity, new EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement()
             {
                 ListenerEntity = eventListenerEntity,
                 EventTypeIndex = eventComponentType.TypeIndex,
-                Selector = EventSubscribeUnsubscribeSelector.Subscribe
+                Mode = EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeManual
             });
         }
 
@@ -167,22 +149,22 @@ namespace EvilOctane.Entities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UnsubscribeFromEvent(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, Entity eventListenerEntity, ComponentType eventComponentType)
         {
-            commandBuffer.AppendToBuffer(eventFirerEntity, new EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement()
+            commandBuffer.AppendToBuffer(eventFirerEntity, new EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement()
             {
                 ListenerEntity = eventListenerEntity,
                 EventTypeIndex = eventComponentType.TypeIndex,
-                Selector = EventSubscribeUnsubscribeSelector.Unsubscribe
+                Mode = EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeManual
             });
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UnsubscribeFromEvent(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity, Entity eventListenerEntity, ComponentType eventComponentType)
         {
-            commandBuffer.AppendToBuffer(sortKey, eventFirerEntity, new EventSubscriptionRegistry.ChangeSubscriptionStatusBufferElement()
+            commandBuffer.AppendToBuffer(sortKey, eventFirerEntity, new EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement()
             {
                 ListenerEntity = eventListenerEntity,
                 EventTypeIndex = eventComponentType.TypeIndex,
-                Selector = EventSubscribeUnsubscribeSelector.Unsubscribe
+                Mode = EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeManual
             });
         }
 
