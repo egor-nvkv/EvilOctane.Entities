@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
 using static Unity.Collections.CollectionHelper;
@@ -8,7 +10,7 @@ using EventSubscriberListHeader = Unity.Collections.LowLevel.Unsafe.InlineListHe
 
 namespace EvilOctane.Entities
 {
-    public unsafe struct EventSetup
+    public unsafe partial struct EventSetup
     {
         [InternalBufferCapacity(0)]
         public struct FirerDeclaredEventTypeBufferElement : IBufferElementData
@@ -49,6 +51,11 @@ namespace EvilOctane.Entities
                     ListenerListStartingCapacity = subscriberCapacity
                 };
             }
+
+            public override readonly string ToString()
+            {
+                return TypeManager.StableTypeHashToDebugTypeName(EventStableTypeHash).ToString();
+            }
         }
 
         [InternalBufferCapacity(0)]
@@ -63,6 +70,42 @@ namespace EvilOctane.Entities
                 {
                     EventStableTypeHash = TypeManager.GetTypeInfo<T>().StableTypeHash
                 };
+            }
+
+            public override readonly string ToString()
+            {
+                return TypeManager.StableTypeHashToDebugTypeName(EventStableTypeHash).ToString();
+            }
+        }
+    }
+
+    public partial struct EventSetup
+    {
+        public static void ToTypeIndexList(DynamicBuffer<FirerDeclaredEventTypeBufferElement> declaredEventTypeBuffer, ref UnsafeList<TypeIndex> typeIndexList)
+        {
+            typeIndexList.Clear();
+            typeIndexList.EnsureCapacity(declaredEventTypeBuffer.Length);
+
+            foreach (FirerDeclaredEventTypeBufferElement declaredEventType in declaredEventTypeBuffer)
+            {
+                if (TypeManager.TryGetTypeIndexFromStableTypeHash(declaredEventType.EventStableTypeHash, out TypeIndex typeIndex))
+                {
+                    typeIndexList.AddNoResize(typeIndex);
+                }
+            }
+        }
+
+        public static void ToTypeIndexList(DynamicBuffer<ListenerDeclaredEventTypeBufferElement> declaredEventTypeBuffer, ref UnsafeList<TypeIndex> typeIndexList)
+        {
+            typeIndexList.Clear();
+            typeIndexList.EnsureCapacity(declaredEventTypeBuffer.Length);
+
+            foreach (ListenerDeclaredEventTypeBufferElement declaredEventType in declaredEventTypeBuffer)
+            {
+                if (TypeManager.TryGetTypeIndexFromStableTypeHash(declaredEventType.EventStableTypeHash, out TypeIndex typeIndex))
+                {
+                    typeIndexList.AddNoResize(typeIndex);
+                }
             }
         }
     }

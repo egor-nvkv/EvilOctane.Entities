@@ -38,6 +38,9 @@ namespace EvilOctane.Entities
 
             subscribeUnsubscribeQuery.SetChangedVersionFilter<EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement>();
 
+            // Required for instantiated Firers with immediate subscriptions to work
+            subscribeUnsubscribeQuery.AddOrderVersionFilter();
+
             routeQuery = SystemAPI.QueryBuilder()
                 .WithPresentRW<
                     EventSubscriptionRegistry.StorageBufferElement>()
@@ -125,6 +128,7 @@ namespace EvilOctane.Entities
             {
                 EventSubscriptionRegistryStorageBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSubscriptionRegistry.StorageBufferElement>(),
                 EventSubscriptionRegistrySubscribeUnsubscribeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement>(),
+                ListenerSetupDeclaredEventTypeBufferLookup = SystemAPI.GetBufferLookup<EventSetup.ListenerDeclaredEventTypeBufferElement>(isReadOnly: true),
                 ListenerDeclaredEventTypeBufferLookup = SystemAPI.GetBufferLookup<EventSettings.ListenerDeclaredEventTypeBufferElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator
             }.ScheduleParallel(subscribeUnsubscribeQuery, state.Dependency);

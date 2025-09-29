@@ -22,16 +22,11 @@ namespace EvilOctane.Entities.Internal
         // Listener
 
         [ReadOnly]
+        public BufferLookup<EventSetup.ListenerDeclaredEventTypeBufferElement> ListenerSetupDeclaredEventTypeBufferLookup;
+        [ReadOnly]
         public BufferLookup<EventSettings.ListenerDeclaredEventTypeBufferElement> ListenerDeclaredEventTypeBufferLookup;
 
         public AllocatorManager.AllocatorHandle TempAllocator;
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> AllocateEventTypeListenerListMap(EventSubscriptionMapHeader* subscriptionMap, AllocatorManager.AllocatorHandle allocator)
-        {
-            int capacity = subscriptionMap->Count + 4;
-            return UnsafeHashMapUtility.CreateHashMap<TypeIndex, EventListenerListCapacityPair>(capacity, 8, allocator);
-        }
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
@@ -40,6 +35,7 @@ namespace EvilOctane.Entities.Internal
             BufferAccessor<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorageBufferAccessor = chunk.GetBufferAccessorRW(ref EventSubscriptionRegistryStorageBufferTypeHandle);
             BufferAccessor<EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement> eventSubscriptionRegistrySubscribeUnsubscribeBufferAccessor = chunk.GetBufferAccessorRW(ref EventSubscriptionRegistrySubscribeUnsubscribeBufferTypeHandle);
 
+            UnsafeList<TypeIndex> typeIndexList = new();
             UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap = new();
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
@@ -58,6 +54,7 @@ namespace EvilOctane.Entities.Internal
                 bool isFull = !ExecuteTryAddNoResize(
                     eventSubscriptionRegistryStorage,
                     ref eventSubscriptionRegistrySubscribeUnsubscribeSpanRO,
+                    ref typeIndexList,
                     ref eventTypeListenerListMap);
 
                 if (Hint.Unlikely(isFull))
@@ -68,6 +65,7 @@ namespace EvilOctane.Entities.Internal
                     ExecuteTempMap(
                         eventSubscriptionRegistryStorage,
                         eventSubscriptionRegistrySubscribeUnsubscribeSpanRO,
+                        ref typeIndexList,
                         ref eventTypeListenerListMap,
                         clearMap: entityIndex != chunk.Count - 1);
                 }
@@ -77,28 +75,108 @@ namespace EvilOctane.Entities.Internal
             }
         }
 
+        private readonly bool ListenerExistGetDeclaredEventTypes(ref UnsafeList<TypeIndex> typeIndexList, Entity listenerEntity, out UnsafeSpan<TypeIndex> declaredEventTypeSpanRO)
+        {
+            bool notSetUp = ListenerSetupDeclaredEventTypeBufferLookup.TryGetBuffer(listenerEntity, out DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> setupDeclaredEventTypeBuffer, out bool entityExists);
+
+            if (Hint.Unlikely(!entityExists))
+            {
+                // Listener does not exist
+
+                declaredEventTypeSpanRO = new();
+                return false;
+            }
+
+            if (Hint.Unlikely(notSetUp))
+            {
+                // Listener not set up
+
+                if (!typeIndexList.IsCreated)
+                {
+                    typeIndexList = UnsafeListExtensions2.Create<TypeIndex>(setupDeclaredEventTypeBuffer.Length, TempAllocator);
+                }
+
+                // Manual convert
+
+                EventSetup.ToTypeIndexList(setupDeclaredEventTypeBuffer, ref typeIndexList);
+                declaredEventTypeSpanRO = typeIndexList.AsSpan();
+            }
+            else
+            {
+                // Get declared Event Types
+
+                DynamicBuffer<EventSettings.ListenerDeclaredEventTypeBufferElement> declaredEventTypeBuffer = ListenerDeclaredEventTypeBufferLookup[listenerEntity];
+                declaredEventTypeSpanRO = declaredEventTypeBuffer.AsSpanRO().Reinterpret<TypeIndex>();
+            }
+
+            return true;
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private readonly UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> AllocateEventTypeListenerListMap(EventSubscriptionMapHeader* subscriptionMap)
+        {
+            int capacity = subscriptionMap->Count + 4;
+            return UnsafeHashMapUtility.CreateHashMap<TypeIndex, EventListenerListCapacityPair>(capacity, 8, TempAllocator);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool ExecuteTryAddNoResize(
             DynamicBuffer<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorage,
             ref UnsafeSpan<EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement> eventSubscriptionRegistrySubscribeUnsubscribeSpan,
+            ref UnsafeList<TypeIndex> typeIndexList,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap)
         {
             for (int index = 0; index != eventSubscriptionRegistrySubscribeUnsubscribeSpan.Length; ++index)
             {
                 EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement subscribeUnsubscribe = eventSubscriptionRegistrySubscribeUnsubscribeSpan[index];
-                bool isFull = subscribeUnsubscribe.Mode switch
+
+                UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO = new();
+
+                bool listenerExist = subscribeUnsubscribe.Mode switch
                 {
-                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeManual => !SubscribeManualTryNoResize(
-                                                eventSubscriptionRegistryStorage,
-                                                ref eventTypeListenerListMap,
-                                                subscribeUnsubscribe.ListenerEntity,
-                                                subscribeUnsubscribe.EventTypeIndex),
-                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeAuto => throw new NotImplementedException(),
-                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeManual => throw new NotImplementedException(),
-                    _ => !SubscribeAutoTryNoResize(
-                                                eventSubscriptionRegistryStorage,
-                                                ref eventTypeListenerListMap,
-                                                subscribeUnsubscribe.ListenerEntity),
+                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeAuto or
+                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeAuto => ListenerExistGetDeclaredEventTypes(ref typeIndexList, subscribeUnsubscribe.ListenerEntity, out listenerDeclaredEventTypeSpanRO),
+                    _ => ListenerDeclaredEventTypeBufferLookup.EntityExists(subscribeUnsubscribe.ListenerEntity)
                 };
+
+                if (Hint.Unlikely(!listenerExist))
+                {
+                    // Listener does not exist
+                    continue;
+                }
+
+                bool isFull;
+
+#pragma warning disable IDE0066
+                switch (subscribeUnsubscribe.Mode)
+                {
+                    case EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeAuto:
+                    default:
+                        isFull = !SubscribeAutoTryNoResize(
+                            eventSubscriptionRegistryStorage,
+                            listenerDeclaredEventTypeSpanRO,
+                            ref eventTypeListenerListMap,
+                            subscribeUnsubscribe.ListenerEntity);
+
+                        break;
+
+                    case EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeManual:
+                        isFull = !SubscribeManualTryNoResize(
+                            eventSubscriptionRegistryStorage,
+                            ref eventTypeListenerListMap,
+                            subscribeUnsubscribe.ListenerEntity,
+                            subscribeUnsubscribe.EventTypeIndex);
+
+                        break;
+
+                    case EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeAuto:
+                        throw new NotImplementedException();
+
+                    case EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeManual:
+                        throw new NotImplementedException();
+                }
+#pragma warning restore IDE0066
+
                 if (Hint.Unlikely(isFull))
                 {
                     // Full
@@ -115,6 +193,7 @@ namespace EvilOctane.Entities.Internal
         private void ExecuteTempMap(
             DynamicBuffer<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorage,
             UnsafeSpan<EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement> eventSubscriptionRegistrySubscribeUnsubscribeSpan,
+            ref UnsafeList<TypeIndex> typeIndexList,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
             bool clearMap)
         {
@@ -122,21 +201,39 @@ namespace EvilOctane.Entities.Internal
             {
                 EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement subscribeUnsubscribe = eventSubscriptionRegistrySubscribeUnsubscribeSpan[index];
 
+                UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO = new();
+
+                bool listenerExist = subscribeUnsubscribe.Mode switch
+                {
+                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeAuto or
+                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeAuto => ListenerExistGetDeclaredEventTypes(ref typeIndexList, subscribeUnsubscribe.ListenerEntity, out listenerDeclaredEventTypeSpanRO),
+                    _ => ListenerDeclaredEventTypeBufferLookup.EntityExists(subscribeUnsubscribe.ListenerEntity)
+                };
+
+                if (Hint.Unlikely(!listenerExist))
+                {
+                    // Listener does not exist
+                    continue;
+                }
+
                 switch (subscribeUnsubscribe.Mode)
                 {
                     case EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeAuto:
                     default:
-                        SubscribeAutoTempMap(
+                        EventSubscriptionRegistry.Subscribe(
                             ref eventTypeListenerListMap,
-                            subscribeUnsubscribe.ListenerEntity);
+                            listenerDeclaredEventTypeSpanRO,
+                            subscribeUnsubscribe.ListenerEntity,
+                            TempAllocator);
 
                         break;
 
                     case EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeManual:
-                        SubscribeManualTempMap(
+                        EventSubscriptionRegistry.Subscribe(
                             ref eventTypeListenerListMap,
                             subscribeUnsubscribe.ListenerEntity,
-                            subscribeUnsubscribe.EventTypeIndex);
+                            subscribeUnsubscribe.EventTypeIndex,
+                            TempAllocator);
 
                         break;
 
@@ -159,7 +256,7 @@ namespace EvilOctane.Entities.Internal
 
                 for (int index = 0; index != valueSpan.Length; ++index)
                 {
-                    // Keep allocation
+                    // Keep ptr / capacity
                     valueSpan.ElementAt(index).Clear();
                 }
             }
@@ -168,19 +265,10 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool SubscribeAutoTryNoResize(
             DynamicBuffer<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorage,
+            UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
             Entity listenerEntity)
         {
-            bool listenerExists = ListenerDeclaredEventTypeBufferLookup.EntityExists(listenerEntity);
-
-            if (Hint.Unlikely(!listenerExists))
-            {
-                // Listener destroyed
-                return true;
-            }
-
-            UnsafeSpan<EventSettings.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeSpanRO = ListenerDeclaredEventTypeBufferLookup[listenerEntity].AsSpanRO();
-
             bool isFull = !EventSubscriptionRegistry.TrySubscribeNoResize(
                 eventSubscriptionRegistryStorage,
                 listenerDeclaredEventTypeSpanRO,
@@ -194,7 +282,7 @@ namespace EvilOctane.Entities.Internal
                 if (!eventTypeListenerListMap.IsCreated)
                 {
                     EventSubscriptionMapHeader* subscriptionMap = EventSubscriptionRegistry.GetSubscriptionMap(eventSubscriptionRegistryStorage);
-                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(subscriptionMap, TempAllocator);
+                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(subscriptionMap);
                 }
 
                 EventSubscriptionRegistry.CopyTo(eventSubscriptionRegistryStorage, ref eventTypeListenerListMap, TempAllocator);
@@ -214,42 +302,12 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private void SubscribeAutoTempMap(
-            ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
-            Entity listenerEntity)
-        {
-            bool listenerExists = ListenerDeclaredEventTypeBufferLookup.EntityExists(listenerEntity);
-
-            if (Hint.Unlikely(!listenerExists))
-            {
-                // Listener destroyed
-                return;
-            }
-
-            UnsafeSpan<EventSettings.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeSpanRO = ListenerDeclaredEventTypeBufferLookup[listenerEntity].AsSpanRO();
-
-            EventSubscriptionRegistry.Subscribe(
-                ref eventTypeListenerListMap,
-                listenerDeclaredEventTypeSpanRO,
-                listenerEntity,
-                TempAllocator);
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
         private bool SubscribeManualTryNoResize(
             DynamicBuffer<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorage,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
             Entity listenerEntity,
             TypeIndex eventTypeIndex)
         {
-            bool listenerExists = ListenerDeclaredEventTypeBufferLookup.EntityExists(listenerEntity);
-
-            if (Hint.Unlikely(!listenerExists))
-            {
-                // Listener destroyed
-                return true;
-            }
-
             bool isFull = !EventSubscriptionRegistry.TrySubscribeNoResize(
                 eventSubscriptionRegistryStorage,
                 listenerEntity,
@@ -262,7 +320,7 @@ namespace EvilOctane.Entities.Internal
                 if (!eventTypeListenerListMap.IsCreated)
                 {
                     EventSubscriptionMapHeader* subscriptionMap = EventSubscriptionRegistry.GetSubscriptionMap(eventSubscriptionRegistryStorage);
-                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(subscriptionMap, TempAllocator);
+                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(subscriptionMap);
                 }
 
                 EventSubscriptionRegistry.CopyTo(eventSubscriptionRegistryStorage, ref eventTypeListenerListMap, TempAllocator);
@@ -270,27 +328,6 @@ namespace EvilOctane.Entities.Internal
             }
 
             return true;
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private void SubscribeManualTempMap(
-            ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
-            Entity listenerEntity,
-            TypeIndex eventTypeIndex)
-        {
-            bool listenerExists = ListenerDeclaredEventTypeBufferLookup.EntityExists(listenerEntity);
-
-            if (Hint.Unlikely(!listenerExists))
-            {
-                // Listener destroyed
-                return;
-            }
-
-            EventSubscriptionRegistry.Subscribe(
-                ref eventTypeListenerListMap,
-                listenerEntity,
-                eventTypeIndex,
-                TempAllocator);
         }
     }
 }

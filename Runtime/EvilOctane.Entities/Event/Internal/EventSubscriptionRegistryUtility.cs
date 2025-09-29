@@ -101,12 +101,12 @@ namespace EvilOctane.Entities.Internal
         public static void CopyTo(DynamicBuffer<StorageBufferElement> buffer, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator)
         {
             EventSubscriptionMapHeader* subscriptionMap = GetSubscriptionMap(buffer, readOnly: true);
-            nint firstListOffset = GetFirstSubscriberListOffset(subscriptionMap);
 
             HashMapHelperRef<TypeIndex> mapHelper = eventTypeListenerListMap.GetHelperRef();
             mapHelper.EnsureCapacity(subscriptionMap->Count);
 
             EventSubscriptionMap.Enumerator enumerator = EventSubscriptionMap.GetEnumerator(subscriptionMap);
+            nint firstListOffset = GetFirstSubscriberListOffset(subscriptionMap);
 
             while (enumerator.MoveNext())
             {
@@ -256,11 +256,11 @@ namespace EvilOctane.Entities.Internal
             listenerListCapacityPair.AddNoResize(listenerEntity);
         }
 
-        public static void Subscribe(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, UnsafeSpan<EventSettings.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeSpanRO, Entity listenerEntity, AllocatorManager.AllocatorHandle tempAllocator)
+        public static void Subscribe(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO, Entity listenerEntity, AllocatorManager.AllocatorHandle tempAllocator)
         {
-            foreach (EventSettings.ListenerDeclaredEventTypeBufferElement listenerDeclaredEvent in listenerDeclaredEventTypeSpanRO)
+            foreach (TypeIndex listenerDeclaredEvent in listenerDeclaredEventTypeSpanRO)
             {
-                Subscribe(ref eventTypeListenerListMap, listenerEntity, listenerDeclaredEvent.EventTypeIndex, tempAllocator);
+                Subscribe(ref eventTypeListenerListMap, listenerEntity, listenerDeclaredEvent, tempAllocator);
             }
         }
 
@@ -298,13 +298,13 @@ namespace EvilOctane.Entities.Internal
             return true;
         }
 
-        public static bool TrySubscribeNoResize(DynamicBuffer<StorageBufferElement> buffer, UnsafeSpan<EventSettings.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeSpanRO, Entity listenerEntity, out int processedCount)
+        public static bool TrySubscribeNoResize(DynamicBuffer<StorageBufferElement> buffer, UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO, Entity listenerEntity, out int processedCount)
         {
             processedCount = 0;
 
-            foreach (EventSettings.ListenerDeclaredEventTypeBufferElement listenerDeclaredEvent in listenerDeclaredEventTypeSpanRO)
+            foreach (TypeIndex listenerDeclaredEvent in listenerDeclaredEventTypeSpanRO)
             {
-                if (!TrySubscribeNoResize(buffer, listenerEntity, listenerDeclaredEvent.EventTypeIndex))
+                if (!TrySubscribeNoResize(buffer, listenerEntity, listenerDeclaredEvent))
                 {
                     // Full
                     return false;

@@ -1,7 +1,7 @@
 {
   "name": "com.evil-octane.entities",
   "displayName": "EvilOctane Entities",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "unity": "6000.0",
   "unityRelease": "0f1",
   "description": "Extension containers and methods for Unity.Entities package.",

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.10.4] - 2025-09-30
+
+Event system fixes
+
 ## [0.10.3] - 2025-09-29
 
 Event system now support Auto subscribe mode to declared event types
