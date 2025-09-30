@@ -51,6 +51,8 @@ namespace EvilOctane.Entities.Tests
     public struct OwnerEntityComponent : IOwnerEntityComponentData
     {
         public Entity OwnerEntity;
+
+        readonly Entity IOwnerEntityComponentData.OwnerEntity => OwnerEntity;
     }
 
     [DisableAutoCreation]

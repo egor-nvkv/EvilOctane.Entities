@@ -36,7 +36,7 @@ namespace EvilOctane.Entities.Internal
 
                 // Get Entities
                 // Skip clearing Buffers
-                UnsafeList<Entity> entitiesToDestroyList = EntityDynamicBufferUtility.ExtractAliveEntityList(eventEntityBufferAccessor, EntityLookup, TempAllocator, clearBuffers: false);
+                UnsafeList<Entity> entitiesToDestroyList = EntityOwner.ExtractAliveOwnedEntityList(eventEntityBufferAccessor, EntityLookup, TempAllocator, clearBuffers: false);
 
                 if (Hint.Likely(!entitiesToDestroyList.IsEmpty))
                 {
@@ -49,7 +49,7 @@ namespace EvilOctane.Entities.Internal
 
             // Clean up
 
-            ComponentTypeSet componentTypeSet = EventUtility.GetEventFirerComponentTypeSet(includeAllocatedTag: false);
+            ComponentTypeSet componentTypeSet = EventSystem.GetEventFirerComponentTypeSet(includeAllocatedTag: false);
             CommandBuffer.RemoveComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
         }
     }

@@ -31,7 +31,7 @@ namespace EvilOctane.Entities.Internal
 
             // Add runtime components
 
-            ComponentTypeSet eventFirerComponentTypeSet = EventUtility.GetEventFirerComponentTypeSet();
+            ComponentTypeSet eventFirerComponentTypeSet = EventSystem.GetEventFirerComponentTypeSet();
             CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, eventFirerComponentTypeSet);
 
             // Setup runtime components

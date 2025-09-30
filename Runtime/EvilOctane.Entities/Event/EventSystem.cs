@@ -6,7 +6,7 @@ using Unity.Entities;
 
 namespace EvilOctane.Entities
 {
-    public static partial class EventUtility
+    public static partial class EventSystem
     {
         // Firer
 

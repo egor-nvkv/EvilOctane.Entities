@@ -7,6 +7,13 @@ namespace Unity.Entities
 {
     public static partial class TypeManager
     {
+        /// <summary>
+        /// <inheritdoc cref="GetTypeIndexFromStableTypeHash(ulong)"/>
+        /// </summary>
+        /// <param name="stableTypeHash"></param>
+        /// <param name="typeIndex"></param>
+        /// <param name="logDevError"></param>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool TryGetTypeIndexFromStableTypeHash(ulong stableTypeHash, out TypeIndex typeIndex, bool logDevError = true)
         {

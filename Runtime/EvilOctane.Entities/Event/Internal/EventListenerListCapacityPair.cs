@@ -11,7 +11,7 @@ namespace EvilOctane.Entities.Internal
         public int ListenerListCapacity;
 
         /// <summary>
-        /// <seealso cref="EventSetup.FirerDeclaredEventTypeBufferElement.ListenerListStartingCapacity"/>
+        /// <see cref="EventSetup.FirerDeclaredEventTypeBufferElement.ListenerListStartingCapacity"/>
         /// </summary>
         public int ListenerListStartingCapacity;
 

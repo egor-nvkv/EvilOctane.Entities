@@ -19,7 +19,6 @@ namespace EvilOctane.Entities
         [ReadOnly]
         public ComponentLookup<TAliveTag> EntityLookup;
 
-        [ReadOnly]
         public BufferTypeHandle<TEntityOwnerElement> EntityOwnerBufferTypeHandle;
 
         public AllocatorManager.AllocatorHandle TempAllocator;
@@ -29,11 +28,10 @@ namespace EvilOctane.Entities
         {
             Assert.IsFalse(useEnabledMask);
 
-            BufferAccessor<TEntityOwnerElement> entityOwnerBufferAccessor = chunk.GetBufferAccessorRO(ref EntityOwnerBufferTypeHandle);
+            BufferAccessor<TEntityOwnerElement> entityOwnerBufferAccessor = chunk.GetBufferAccessorRW(ref EntityOwnerBufferTypeHandle);
 
             // Get Entities
-            // Don't clear Buffers as the Entities holding them are already [scheduled to be] destroyed
-            UnsafeList<Entity> entitiesToDestroyList = EntityDynamicBufferUtility.ExtractAliveEntityList(entityOwnerBufferAccessor, EntityLookup, TempAllocator, clearBuffers: false);
+            UnsafeList<Entity> entitiesToDestroyList = EntityOwner.ExtractAliveOwnedEntityList(entityOwnerBufferAccessor, EntityLookup, TempAllocator, clearBuffers: true);
 
             if (Hint.Likely(!entitiesToDestroyList.IsEmpty))
             {

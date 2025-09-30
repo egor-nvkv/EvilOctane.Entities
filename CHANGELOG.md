@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.10.5] - 2025-09-30
+
+Added documentation
+
 ## [0.10.4] - 2025-09-30
 
 Event system fixes

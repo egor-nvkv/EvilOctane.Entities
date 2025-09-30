@@ -1,7 +1,9 @@
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
 
@@ -24,16 +26,19 @@ namespace EvilOctane.Entities
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
+            UnsafeUtility2.CheckReinterpretArgs<TEntityOwnerElement, Entity>(requireExactAlignment: true);
+
             Assert.IsFalse(useEnabledMask);
 
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
-            Entity* ownerEntityPtr = chunk.GetComponentDataPtrROReinterpret<TOwnerEntityComponent, Entity>(ref OwnerEntityComponentTypeHandle);
+            TOwnerEntityComponent* ownerEntityPtr = chunk.GetComponentDataPtrRO(ref OwnerEntityComponentTypeHandle);
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
-                Entity ownerEntity = ownerEntityPtr[entityIndex];
+                Entity ownerEntity = ownerEntityPtr[entityIndex].OwnerEntity;
+                bool hasEntityOwnerBuffer = EntityOwnerBufferLookup.TryGetBuffer(ownerEntity, out DynamicBuffer<TEntityOwnerElement> entityOwnerBuffer);
 
-                if (!EntityOwnerBufferLookup.TryGetBuffer(ownerEntity, out DynamicBuffer<TEntityOwnerElement> entityOwnerBuffer))
+                if (Hint.Unlikely(!hasEntityOwnerBuffer))
                 {
                     // Owner (or buffer) destroyed
                     continue;

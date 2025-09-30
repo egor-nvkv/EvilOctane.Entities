@@ -5,7 +5,7 @@ namespace Unity.Entities
     public static unsafe class SystemStateExtensions
     {
         /// <summary>
-        /// <seealso cref="SystemState.RequireAnyForUpdate(Collections.NativeArray{EntityQuery})"/>
+        /// <inheritdoc cref="SystemState.RequireAnyForUpdate(EntityQuery[])"/>
         /// </summary>
         /// <param name="self"></param>
         /// <param name="entityQuery0"></param>
@@ -23,7 +23,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// <seealso cref="SystemState.RequireAnyForUpdate(Collections.NativeArray{EntityQuery})"/>
+        /// <inheritdoc cref="SystemState.RequireAnyForUpdate(EntityQuery[])"/>
         /// </summary>
         /// <param name="self"></param>
         /// <param name="entityQuery0"></param>

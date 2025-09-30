@@ -32,7 +32,7 @@ namespace EvilOctane.Entities.Internal
 
             // Add runtime components
 
-            ComponentTypeSet eventListenerComponentTypeSet = EventUtility.GetEventListenerComponentTypeSet();
+            ComponentTypeSet eventListenerComponentTypeSet = EventSystem.GetEventListenerComponentTypeSet();
             CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, eventListenerComponentTypeSet);
 
             // Setup runtime components

@@ -51,6 +51,8 @@ namespace EvilOctane.Entities.Tests
     public struct EntityOwnerBufferElement : IEntityOwnerBufferElementData
     {
         public Entity OwnedEntity;
+
+        readonly Entity IEntityOwnerBufferElementData.OwnedEntity => OwnedEntity;
     }
 
     [DisableAutoCreation]
@@ -76,7 +78,7 @@ namespace EvilOctane.Entities.Tests
                 {
                     EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
                     EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentsAliveTag>(isReadOnly: true),
-                    EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(isReadOnly: true),
+                    EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(),
                     TempAllocator = state.WorldUpdateAllocator,
                     CommandBuffer = commandBuffer.AsParallelWriter()
                 }.ScheduleParallel(query, new JobHandle()).Complete();
@@ -87,7 +89,7 @@ namespace EvilOctane.Entities.Tests
                 {
                     EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
                     EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentsAliveTag>(isReadOnly: true),
-                    EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(isReadOnly: true),
+                    EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(),
                     TempAllocator = state.WorldUpdateAllocator,
                     CommandBuffer = commandBuffer
                 }.Run(query);

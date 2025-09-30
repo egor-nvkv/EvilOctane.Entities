@@ -56,7 +56,7 @@ namespace EvilOctane.Entities.Internal
             // Clear Event Buffers
 
             // Get Event Entities
-            UnsafeList<Entity> entitiesToDestroyList = EntityDynamicBufferUtility.ExtractEntityList(eventEntityBufferAccessor, TempAllocator, clearBuffers: true);
+            UnsafeList<Entity> entitiesToDestroyList = EntityOwner.ExtractOwnedEntityList(eventEntityBufferAccessor, TempAllocator, clearBuffers: true);
 
             if (Hint.Likely(!entitiesToDestroyList.IsEmpty))
             {

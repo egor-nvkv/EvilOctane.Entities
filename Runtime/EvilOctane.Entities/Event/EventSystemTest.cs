@@ -43,7 +43,7 @@ namespace EvilOctane.Entities.Test
             EntityCommandBuffer commandBuffer = new(world.UpdateAllocator.ToAllocator);
 
             // Subscribe
-            EventUtility.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity);
+            EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity);
 
             commandBuffer.Playback(world.EntityManager);
 
@@ -52,7 +52,7 @@ namespace EvilOctane.Entities.Test
             commandBuffer = new(world.UpdateAllocator.ToAllocator);
 
             // Fire
-            _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, new TestEvent()
+            _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, new TestEvent()
             {
                 Value = 123
             });

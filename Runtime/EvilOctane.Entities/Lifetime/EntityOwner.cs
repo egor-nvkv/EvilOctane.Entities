@@ -7,12 +7,14 @@ using Unity.Entities.LowLevel.Unsafe;
 
 namespace EvilOctane.Entities
 {
-    public static class EntityDynamicBufferUtility
+    public static unsafe class EntityOwner
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static UnsafeList<Entity> ExtractEntityList<T>(BufferAccessor<T> bufferAccessor, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
-            where T : unmanaged, IBufferElementData
+        public static UnsafeList<Entity> ExtractOwnedEntityList<T>(BufferAccessor<T> bufferAccessor, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
+            where T : unmanaged, IEntityOwnerBufferElementData
         {
+            UnsafeUtility2.CheckReinterpretArgs<T, Entity>(requireExactAlignment: true);
+
             int totalElementCount = bufferAccessor.GetTotalElementCount();
 
             if (Hint.Unlikely(totalElementCount == 0))
@@ -24,15 +26,15 @@ namespace EvilOctane.Entities
 
             for (int index = 0; index != bufferAccessor.Length; ++index)
             {
-                DynamicBuffer<Entity> entityBuffer = bufferAccessor[index].Reinterpret<Entity>();
+                DynamicBuffer<T> buffer = bufferAccessor[index];
 
                 // Add Entities
-                entityList.AddRangeNoResize(entityBuffer.AsSpanRO());
+                entityList.AddRangeNoResize(buffer.AsSpanRO().Reinterpret<Entity>());
 
                 if (clearBuffers)
                 {
                     // Clear Buffer
-                    entityBuffer.Clear();
+                    buffer.Clear();
                 }
             }
 
@@ -40,10 +42,12 @@ namespace EvilOctane.Entities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static UnsafeList<Entity> ExtractAliveEntityList<TElement, TDummyComponent>(BufferAccessor<TElement> bufferAccessor, ComponentLookup<TDummyComponent> entityLookup, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
-            where TElement : unmanaged, IBufferElementData
+        public static UnsafeList<Entity> ExtractAliveOwnedEntityList<TElement, TDummyComponent>(BufferAccessor<TElement> bufferAccessor, ComponentLookup<TDummyComponent> entityLookup, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
+            where TElement : unmanaged, IEntityOwnerBufferElementData
             where TDummyComponent : unmanaged, IComponentData
         {
+            UnsafeUtility2.CheckReinterpretArgs<TElement, Entity>(requireExactAlignment: true);
+
             int totalElementCount = bufferAccessor.GetTotalElementCount();
 
             if (Hint.Unlikely(totalElementCount == 0))
@@ -55,27 +59,29 @@ namespace EvilOctane.Entities
 
             for (int index = 0; index != bufferAccessor.Length; ++index)
             {
-                DynamicBuffer<Entity> entityBuffer = bufferAccessor[index].Reinterpret<Entity>();
+                DynamicBuffer<TElement> buffer = bufferAccessor[index];
 
-                if (entityBuffer.IsEmpty)
+                if (buffer.IsEmpty)
                 {
                     // Empty
                     continue;
                 }
 
-                foreach (Entity entity in entityBuffer)
+                foreach (TElement element in buffer)
                 {
-                    if (entityLookup.EntityExists(entity))
+                    Entity ownedEntity = element.OwnedEntity;
+
+                    if (entityLookup.EntityExists(ownedEntity))
                     {
                         // Add Entity
-                        entityList.AddNoResize(entity);
+                        entityList.AddNoResize(ownedEntity);
                     }
                 }
 
                 if (clearBuffers)
                 {
                     // Clear Buffer
-                    entityBuffer.Clear();
+                    buffer.Clear();
                 }
             }
 

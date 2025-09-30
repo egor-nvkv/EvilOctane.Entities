@@ -204,25 +204,25 @@ namespace EvilOctane.Entities.Tests
                     // Listener 0
                     {
                         // Auto
-                        EventUtility.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                        EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity0);
 
                         // Duplicate
-                        EventUtility.SubscribeToEvent<EventSingle>(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                        EventSystem.SubscribeToEvent<EventSingle>(commandBuffer, eventFirerEntity, eventListenerEntity0);
                     }
 
                     // Listener 1
                     {
                         // Auto
-                        EventUtility.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+                        EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
                     }
 
                     // Listener 2
                     {
                         // Auto
-                        EventUtility.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                        EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity2);
 
                         // Custom
-                        EventUtility.SubscribeToEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                        EventSystem.SubscribeToEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
                     }
                 }
             }
@@ -251,7 +251,7 @@ namespace EvilOctane.Entities.Tests
 
                     // Undeclared Event
                     {
-                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, new UndeclaredEvent());
+                        _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, new UndeclaredEvent());
 
                         if (expectErrorLog)
                         {
@@ -261,13 +261,13 @@ namespace EvilOctane.Entities.Tests
 
                     // Single Event
                     {
-                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent());
-                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent(eventId));
+                        _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent());
+                        _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent(eventId));
                     }
 
                     // Buffer Event
                     {
-                        _ = EventUtility.FireEvent(commandBuffer, eventFirerEntity, out DynamicBuffer<EventBufferElement> eventDataBuffer);
+                        _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, out DynamicBuffer<EventBufferElement> eventDataBuffer);
 
                         eventDataBuffer.ResizeUninitialized(2);
                         SetTwoBufferEventElements(eventDataBuffer.AsSpanRW(), eventId);

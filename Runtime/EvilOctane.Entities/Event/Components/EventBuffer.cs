@@ -8,6 +8,8 @@ namespace EvilOctane.Entities.Internal
         public struct EntityElement : IEntityOwnerBufferElementData
         {
             public Entity EventEntity;
+
+            public readonly Entity OwnedEntity => EventEntity;
         }
 
         [InternalBufferCapacity(0)]
