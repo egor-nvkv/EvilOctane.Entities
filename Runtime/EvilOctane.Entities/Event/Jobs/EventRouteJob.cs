@@ -53,19 +53,18 @@ namespace EvilOctane.Entities.Internal
                 eventEntityBufferAccessor,
                 eventTypeBufferAccessor);
 
-            // Clear Event Buffers
+            // Destroy Event Entities
 
-            // Get Event Entities
             UnsafeList<Entity> entitiesToDestroyList = EntityOwner.ExtractOwnedEntityList(eventEntityBufferAccessor, TempAllocator, clearBuffers: true);
 
             if (Hint.Likely(!entitiesToDestroyList.IsEmpty))
             {
-                // Destroy Event Entities
+                // Destroy
                 CommandBuffer.DestroyEntity(entitiesToDestroyList.AsSpan());
             }
 
-            // Clear Event Types
-            DynamicBufferUtility.ClearAllBuffersInChunk(in chunk, ref EventTypeBufferTypeHandle);
+            // Clear
+            DynamicBufferUtility.ClearAllBuffersInChunk(in chunk, eventTypeBufferAccessor);
         }
 
         private void RouteEvents(
@@ -76,9 +75,9 @@ namespace EvilOctane.Entities.Internal
         {
             for (int entityIndex = 0; entityIndex != eventEntityBufferAccessor.Length; ++entityIndex)
             {
-                UnsafeSpan<EventBuffer.EntityElement> eventSpanRO = eventEntityBufferAccessor[entityIndex].AsSpanRO();
+                DynamicBuffer<EventBuffer.EntityElement> eventEntityBuffer = eventEntityBufferAccessor[entityIndex];
 
-                if (eventSpanRO.IsEmpty)
+                if (eventEntityBuffer.IsEmpty)
                 {
                     // No Events
                     continue;
@@ -87,14 +86,16 @@ namespace EvilOctane.Entities.Internal
                 DynamicBuffer<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorageBuffer = eventSubscriptionRegistryStorageBufferAccessor[entityIndex];
                 EventSubscriptionMapHeader* subscriptionMap = EventSubscriptionRegistry.GetSubscriptionMap(eventSubscriptionRegistryStorageBuffer, readOnly: true);
 
-                UnsafeSpan<EventBuffer.TypeElement> eventTypeSpanRO = eventTypeBufferAccessor[entityIndex].AsSpanRO();
-                Assert.AreEqual(eventSpanRO.Length, eventTypeSpanRO.Length);
+                DynamicBuffer<EventBuffer.TypeElement> eventTypeBuffer = eventTypeBufferAccessor[entityIndex];
+                Assert.AreEqual(eventEntityBuffer.Length, eventTypeBuffer.Length);
+
+                // Route
 
                 RouteEvents(
                     entityPtr[entityIndex],
                     subscriptionMap,
-                    eventSpanRO,
-                    eventTypeSpanRO);
+                    eventEntityBuffer.AsSpanRO(),
+                    eventTypeBuffer.AsSpanRO());
             }
         }
 
@@ -146,11 +147,11 @@ namespace EvilOctane.Entities.Internal
                 for (int listerIndex = 0; listerIndex != subscriberList->Length;)
                 {
                     Entity listenerEntity = EventSubscriberList.GetElementPointer(subscriberList)[listerIndex];
-                    bool listenerExists = EventReceiveBufferLookup.EntityExists(listenerEntity);
+                    bool listenerIsValid = EventReceiveBufferLookup.TryGetBuffer(listenerEntity, out DynamicBuffer<EventReceiveBuffer.Element> receiveBuffer);
 
-                    if (Hint.Unlikely(!listenerExists))
+                    if (Hint.Unlikely(!listenerIsValid))
                     {
-                        // Listener destroyed
+                        // Remove Listener
 
                         EventSubscriberList.RemoveAtSwapBack(subscriberList, listerIndex);
 
@@ -161,8 +162,6 @@ namespace EvilOctane.Entities.Internal
                     }
 
                     // Route Event
-
-                    DynamicBuffer<EventReceiveBuffer.Element> receiveBuffer = EventReceiveBufferLookup[listenerEntity];
 
                     _ = receiveBuffer.Add(new EventReceiveBuffer.Element()
                     {

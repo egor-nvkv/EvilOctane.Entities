@@ -15,7 +15,8 @@ namespace EvilOctane.Entities
         {
             Assert.IsFalse(useEnabledMask);
 
-            DynamicBufferUtility.ClearAllBuffersInChunk(in chunk, ref BufferTypeHandle);
+            BufferAccessor<TElement> bufferAccessor = chunk.GetBufferAccessorRW(ref BufferTypeHandle);
+            DynamicBufferUtility.ClearAllBuffersInChunk(in chunk, bufferAccessor);
         }
     }
 }

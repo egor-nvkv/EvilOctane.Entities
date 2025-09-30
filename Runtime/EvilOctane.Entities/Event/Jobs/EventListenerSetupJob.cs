@@ -54,7 +54,7 @@ namespace EvilOctane.Entities.Internal
             UnsafeSpan<EventSetup.ListenerDeclaredEventTypeBufferElement> setupDeclaredEventTypeSpanRO)
         {
             DynamicBuffer<EventSettings.ListenerDeclaredEventTypeBufferElement> declaredEventTypeBufferTypeHandle = CommandBuffer.SetBuffer<EventSettings.ListenerDeclaredEventTypeBufferElement>(sortKey, entity);
-            declaredEventTypeBufferTypeHandle.EnsureCapacity(setupDeclaredEventTypeSpanRO.Length);
+            declaredEventTypeBufferTypeHandle.EnsureCapacityTrashOldData(setupDeclaredEventTypeSpanRO.Length);
 
             for (int eventIndex = 0; eventIndex != setupDeclaredEventTypeSpanRO.Length; ++eventIndex)
             {
@@ -78,7 +78,7 @@ namespace EvilOctane.Entities.Internal
 
                 // Register
 
-                _ = declaredEventTypeBufferTypeHandle.Add(new EventSettings.ListenerDeclaredEventTypeBufferElement()
+                _ = declaredEventTypeBufferTypeHandle.AddNoResize(new EventSettings.ListenerDeclaredEventTypeBufferElement()
                 {
                     EventTypeIndex = eventTypeIndex
                 });

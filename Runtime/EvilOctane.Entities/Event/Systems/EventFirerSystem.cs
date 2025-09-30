@@ -1,14 +1,7 @@
 using EvilOctane.Entities.Internal;
-using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Jobs;
-
-#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
-using Unity.Collections;
-using Unity.Jobs.LowLevel.Unsafe;
-using static Unity.Collections.CollectionHelper;
-#endif
 
 namespace EvilOctane.Entities
 {
@@ -26,8 +19,10 @@ namespace EvilOctane.Entities
         public void OnCreate(ref SystemState state)
         {
             eventFirerSetupQuery = SystemAPI.QueryBuilder()
-                .WithPresent<EventSetup.FirerDeclaredEventTypeBufferElement>()
-                .WithAbsent<EventSubscriptionRegistry.StorageBufferElement>()
+                .WithPresent<
+                    EventSetup.FirerDeclaredEventTypeBufferElement>()
+                .WithAbsent<
+                    EventSubscriptionRegistry.StorageBufferElement>()
                 .Build();
 
             subscribeUnsubscribeQuery = SystemAPI.QueryBuilder()
@@ -61,58 +56,33 @@ namespace EvilOctane.Entities
                     EventSubscriptionRegistry.StorageBufferElement,
                     EventBuffer.EntityElement,
                     EventBuffer.TypeElement>()
-                .WithAbsent<CleanupComponentsAliveTag>()
+                .WithAbsent<
+                    CleanupComponentsAliveTag>()
                 .Build();
         }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            if (!eventFirerSetupQuery.IsEmptyIgnoreFilter)
-            {
-                ScheduleEventFirerSetup(ref state);
-            }
-
-            if (!subscribeUnsubscribeQuery.IsEmpty)
-            {
-                ScheduleSubscribeUnsubscribe(ref state);
-            }
-
-            bool routeQueryIsEmpty = routeQuery.IsEmpty;
-            bool eventFirerCleanupQueryIsEmpty = eventFirerCleanupQuery.IsEmptyIgnoreFilter;
-
-            if (routeQueryIsEmpty & eventFirerCleanupQueryIsEmpty)
-            {
-                // Skip creating Command Buffer
-                return;
-            }
+            JobHandle setupJobHandle = ScheduleEventFirerSetup(ref state);
+            JobHandle subscribeUnsubscribeJobHandle = ScheduleSubscribeUnsubscribe(ref state);
 
             BeginInitializationEntityCommandBufferSystem.Singleton nextFrameCommandBufferSystem = SystemAPI.GetSingleton<BeginInitializationEntityCommandBufferSystem.Singleton>();
 
             EntityCommandBuffer nextFrameCommandBuffer = nextFrameCommandBufferSystem.CreateCommandBuffer(state.WorldUnmanaged);
             EntityCommandBuffer.ParallelWriter nextFrameParallelWriter = nextFrameCommandBuffer.AsParallelWriter();
 
-            if (!routeQueryIsEmpty)
-            {
-#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
-                ScheduleEventRouteParallel(ref state, parallelWriter);
-#else
-                ScheduleEventRoute(ref state, nextFrameCommandBuffer);
-#endif
-            }
+            JobHandle routeJobHandle = ScheduleEventRoute(ref state, nextFrameCommandBuffer, subscribeUnsubscribeJobHandle);
+            JobHandle cleanupJobHandle = ScheduleEventFirerCleanup(ref state, nextFrameParallelWriter, routeJobHandle);
 
-            if (!eventFirerCleanupQueryIsEmpty)
-            {
-                ScheduleEventFirerCleanup(ref state, nextFrameParallelWriter);
-            }
+            state.Dependency = JobHandle.CombineDependencies(setupJobHandle, cleanupJobHandle);
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ScheduleEventFirerSetup(ref SystemState state)
+        private JobHandle ScheduleEventFirerSetup(ref SystemState state)
         {
             EntityCommandBuffer commandBuffer = SystemAPI.GetSingleton<EndInitializationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
 
-            state.Dependency = new EventFirerSetupJob()
+            return new EventFirerSetupJob()
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
                 SetupDeclaredEventTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSetup.FirerDeclaredEventTypeBufferElement>(isReadOnly: true),
@@ -121,10 +91,9 @@ namespace EvilOctane.Entities
             }.ScheduleParallel(eventFirerSetupQuery, state.Dependency);
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ScheduleSubscribeUnsubscribe(ref SystemState state)
+        private JobHandle ScheduleSubscribeUnsubscribe(ref SystemState state)
         {
-            state.Dependency = new EventFirerSubscribeUnsubscribeJob()
+            return new EventFirerSubscribeUnsubscribeJob()
             {
                 EventSubscriptionRegistryStorageBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSubscriptionRegistry.StorageBufferElement>(),
                 EventSubscriptionRegistrySubscribeUnsubscribeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSubscriptionRegistry.SubscribeUnsubscribeBufferElement>(),
@@ -134,34 +103,9 @@ namespace EvilOctane.Entities
             }.ScheduleParallel(subscribeUnsubscribeQuery, state.Dependency);
         }
 
-#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ScheduleEventRouteParallel(ref SystemState state, EntityCommandBuffer.ParallelWriter commandBuffer)
+        private JobHandle ScheduleEventRoute(ref SystemState state, EntityCommandBuffer commandBuffer, JobHandle dependsOn)
         {
-            NativeArray<EventRouteJobParallel.PerThreadTempContainers> perThreadTempContainersArray = CreateNativeArray<EventRouteJobParallel.PerThreadTempContainers>(JobsUtility.MaxJobThreadCount, state.WorldUpdateAllocator, NativeArrayOptions.ClearMemory);
-
-            state.Dependency = new EventRouteJobParallel()
-            {
-                EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
-
-                EventSubscriptionRegistryComponentTypeHandle = SystemAPI.GetComponentTypeHandle<EventSubscriptionRegistryComponent>(),
-                EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.EntityElement>(),
-                EventTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.TypeElement>(),
-
-                EventReceiveBufferLookup = SystemAPI.GetBufferLookup<EventReceiveBuffer.Element>(),
-                EventReceiveBufferLockComponentLookup = SystemAPI.GetComponentLookup<EventReceiveBuffer.LockComponent>(),
-
-                PerThreadTempContainersArray = perThreadTempContainersArray,
-
-                TempAllocator = state.WorldUpdateAllocator,
-                CommandBuffer = commandBuffer
-            }.ScheduleParallel(routeQuery, state.Dependency);
-        }
-#else
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ScheduleEventRoute(ref SystemState state, EntityCommandBuffer commandBuffer)
-        {
-            state.Dependency = new EventRouteJob()
+            return new EventRouteJob()
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
 
@@ -173,21 +117,19 @@ namespace EvilOctane.Entities
 
                 TempAllocator = state.WorldUpdateAllocator,
                 CommandBuffer = commandBuffer
-            }.Schedule(routeQuery, state.Dependency);
+            }.Schedule(routeQuery, dependsOn);
         }
-#endif
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ScheduleEventFirerCleanup(ref SystemState state, EntityCommandBuffer.ParallelWriter commandBuffer)
+        private JobHandle ScheduleEventFirerCleanup(ref SystemState state, EntityCommandBuffer.ParallelWriter commandBuffer, JobHandle dependsOn)
         {
-            state.Dependency = new EventFirerCleanupJob()
+            return new EventFirerCleanupJob()
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
                 EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentsAliveTag>(isReadOnly: true),
-                EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.EntityElement>(isReadOnly: true),
+                EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventBuffer.EntityElement>(),
                 TempAllocator = state.WorldUpdateAllocator,
                 CommandBuffer = commandBuffer
-            }.ScheduleParallel(eventFirerCleanupQuery, state.Dependency);
+            }.ScheduleParallel(eventFirerCleanupQuery, dependsOn);
         }
     }
 }

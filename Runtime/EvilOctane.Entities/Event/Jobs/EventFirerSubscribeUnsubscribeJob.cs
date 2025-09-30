@@ -7,6 +7,7 @@ using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using static System.Runtime.CompilerServices.Unsafe;
 using EventSubscriptionMapHeader = Unity.Collections.LowLevel.Unsafe.InlineHashMapHeader<Unity.Entities.TypeIndex>;
 
 namespace EvilOctane.Entities.Internal
@@ -75,39 +76,47 @@ namespace EvilOctane.Entities.Internal
             }
         }
 
-        private readonly bool ListenerExistGetDeclaredEventTypes(ref UnsafeList<TypeIndex> typeIndexList, Entity listenerEntity, out UnsafeSpan<TypeIndex> declaredEventTypeSpanRO)
+        private readonly bool TryGetListenerDeclaredEventTypes(ref UnsafeList<TypeIndex> typeIndexList, Entity listenerEntity, out UnsafeSpan<TypeIndex> declaredEventTypeSpanRO)
         {
-            bool notSetUp = ListenerSetupDeclaredEventTypeBufferLookup.TryGetBuffer(listenerEntity, out DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> setupDeclaredEventTypeBuffer, out bool entityExists);
+            bool hasEventTypeBuffer = ListenerDeclaredEventTypeBufferLookup.TryGetBuffer(listenerEntity, out DynamicBuffer<EventSettings.ListenerDeclaredEventTypeBufferElement> declaredEventTypeBuffer, out bool entityExists);
 
             if (Hint.Unlikely(!entityExists))
             {
                 // Listener does not exist
 
-                declaredEventTypeSpanRO = new();
+                SkipInit(out declaredEventTypeSpanRO);
                 return false;
             }
 
-            if (Hint.Unlikely(notSetUp))
-            {
-                // Listener not set up
-
-                if (!typeIndexList.IsCreated)
-                {
-                    typeIndexList = UnsafeListExtensions2.Create<TypeIndex>(setupDeclaredEventTypeBuffer.Length, TempAllocator);
-                }
-
-                // Manual convert
-
-                EventSetup.ToTypeIndexList(setupDeclaredEventTypeBuffer, ref typeIndexList);
-                declaredEventTypeSpanRO = typeIndexList.AsSpan();
-            }
-            else
+            if (Hint.Likely(hasEventTypeBuffer))
             {
                 // Get declared Event Types
 
-                DynamicBuffer<EventSettings.ListenerDeclaredEventTypeBufferElement> declaredEventTypeBuffer = ListenerDeclaredEventTypeBufferLookup[listenerEntity];
                 declaredEventTypeSpanRO = declaredEventTypeBuffer.AsSpanRO().Reinterpret<TypeIndex>();
+                return true;
             }
+
+            bool hasSetupEventTypeBuffer = ListenerSetupDeclaredEventTypeBufferLookup.TryGetBuffer(listenerEntity, out DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> setupDeclaredEventTypeBuffer);
+
+            if (Hint.Unlikely(!hasSetupEventTypeBuffer))
+            {
+                // No setup buffer
+
+                SkipInit(out declaredEventTypeSpanRO);
+                return false;
+            }
+
+            // Listener not set up
+
+            if (!typeIndexList.IsCreated)
+            {
+                typeIndexList = UnsafeListExtensions2.Create<TypeIndex>(setupDeclaredEventTypeBuffer.Length, TempAllocator);
+            }
+
+            // Manual convert
+
+            EventSetup.ToTypeIndexList(setupDeclaredEventTypeBuffer, ref typeIndexList);
+            declaredEventTypeSpanRO = typeIndexList.AsSpan();
 
             return true;
         }
@@ -132,16 +141,16 @@ namespace EvilOctane.Entities.Internal
 
                 UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO = new();
 
-                bool listenerExist = subscribeUnsubscribe.Mode switch
+                bool listenerIsValid = subscribeUnsubscribe.Mode switch
                 {
                     EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeAuto or
-                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeAuto => ListenerExistGetDeclaredEventTypes(ref typeIndexList, subscribeUnsubscribe.ListenerEntity, out listenerDeclaredEventTypeSpanRO),
+                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeAuto => TryGetListenerDeclaredEventTypes(ref typeIndexList, subscribeUnsubscribe.ListenerEntity, out listenerDeclaredEventTypeSpanRO),
                     _ => ListenerDeclaredEventTypeBufferLookup.EntityExists(subscribeUnsubscribe.ListenerEntity)
                 };
 
-                if (Hint.Unlikely(!listenerExist))
+                if (Hint.Unlikely(!listenerIsValid))
                 {
-                    // Listener does not exist
+                    // Skip Listener
                     continue;
                 }
 
@@ -203,16 +212,16 @@ namespace EvilOctane.Entities.Internal
 
                 UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO = new();
 
-                bool listenerExist = subscribeUnsubscribe.Mode switch
+                bool listenerIsValid = subscribeUnsubscribe.Mode switch
                 {
                     EventSubscriptionRegistry.SubscribeUnsubscribeMode.SubscribeAuto or
-                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeAuto => ListenerExistGetDeclaredEventTypes(ref typeIndexList, subscribeUnsubscribe.ListenerEntity, out listenerDeclaredEventTypeSpanRO),
+                    EventSubscriptionRegistry.SubscribeUnsubscribeMode.UnsubscribeAuto => TryGetListenerDeclaredEventTypes(ref typeIndexList, subscribeUnsubscribe.ListenerEntity, out listenerDeclaredEventTypeSpanRO),
                     _ => ListenerDeclaredEventTypeBufferLookup.EntityExists(subscribeUnsubscribe.ListenerEntity)
                 };
 
-                if (Hint.Unlikely(!listenerExist))
+                if (Hint.Unlikely(!listenerIsValid))
                 {
-                    // Listener does not exist
+                    // Skip Listener
                     continue;
                 }
 

@@ -22,7 +22,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void AddNoResize<T>(this DynamicBuffer<T> self, T item)
+        public static int AddNoResize<T>(this DynamicBuffer<T> self, T item)
             where T : unmanaged
         {
             CheckAddNoResizeHasEnoughCapacity(self.Length, self.Capacity, 1);
@@ -31,11 +31,24 @@ namespace Unity.Entities.LowLevel.Unsafe
             SetLengthNoResize(self, length + 1);
 
             self[length] = item;
+            return length;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddRangeNoResize<T>(this DynamicBuffer<T> self, UnsafeSpan<T> newElems)
+            where T : unmanaged
+        {
+            CheckAddNoResizeHasEnoughCapacity(self.Length, self.Capacity, newElems.Length);
+
+            int oldLength = self.Length;
+            SetLengthNoResize(self, oldLength + newElems.Length);
+
+            new UnsafeSpan<T>((T*)self.GetUnsafePtr() + oldLength, newElems.Length).CopyFrom(newElems);
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void CheckWriteAccessAndInvalidateArrayAliases<T>(ref DynamicBufferExposed<T> exposed)
+        internal static void CheckWriteAccessAndInvalidateArrayAliases<T>(ref DynamicBufferExposed<T> exposed)
             where T : unmanaged
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

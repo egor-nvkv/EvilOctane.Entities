@@ -21,7 +21,7 @@ namespace Unity.Entities
 
             if (Hint.Unlikely(typeIndex == TypeIndex.Null))
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG || UNITY_EDITOR || DEVELOPMENT_BUILD
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 Debug.LogError($"Type with stable hash = {stableTypeHash} not found.");
 #endif
                 return false;
@@ -55,6 +55,16 @@ namespace Unity.Entities
             }
 
             return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static FixedString128Bytes GetTypeNameTruncated(TypeIndex typeIndex)
+        {
+            SkipInit(out FixedString128Bytes typeName);
+            typeName.Length = 0;
+
+            _ = FixedStringMethods.CopyFromTruncated(ref typeName, GetTypeInfo(typeIndex).DebugTypeName);
+            return typeName;
         }
     }
 }

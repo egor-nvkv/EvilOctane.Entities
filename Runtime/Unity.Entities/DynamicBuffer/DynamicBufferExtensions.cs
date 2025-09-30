@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using static Unity.Entities.LowLevel.Unsafe.DynamicBufferUnsafeExtensions;
 
 namespace Unity.Entities
 {
@@ -21,14 +22,58 @@ namespace Unity.Entities
             return new UnsafeSpan<T>((T*)self.GetUnsafeReadOnlyPtr(), self.Length);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="DynamicBuffer{T}.ResizeUninitialized(int)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="length"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void AddRange<T>(this DynamicBuffer<T> self, UnsafeSpan<T> valueSpan)
+        public static void ResizeUninitializedTrashOldData<T>(this DynamicBuffer<T> self, int length)
+            where T : unmanaged
+        {
+            EnsureCapacityTrashOldData(self, length);
+
+            ref DynamicBufferExposed<T> exposed = ref UnsafeUtility2.Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            exposed.m_Buffer->Length = length;
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="DynamicBuffer{T}.EnsureCapacity(int)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="length"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void EnsureCapacityTrashOldData<T>(this DynamicBuffer<T> self, int length)
+            where T : unmanaged
+        {
+            CollectionHelper2.CheckContainerLength(length);
+
+            ref DynamicBufferExposed<T> exposed = ref UnsafeUtility2.Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+
+            CheckWriteAccessAndInvalidateArrayAliases(ref exposed);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            BufferHeader.EnsureCapacity(exposed.m_Buffer, length, sizeof(T), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.TrashOldData, exposed.m_useMemoryInitPattern == 1, exposed.m_memoryInitPattern);
+#else
+            BufferHeader.EnsureCapacity(exposed.m_Buffer, length, sizeof(T), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.TrashOldData, false, 0);
+#endif
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="DynamicBuffer{T}.AddRange(NativeArray{T})"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="newElems"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddRange<T>(this DynamicBuffer<T> self, UnsafeSpan<T> newElems)
             where T : unmanaged
         {
             int oldLength = self.Length;
-            self.ResizeUninitialized(oldLength + valueSpan.Length);
+            self.ResizeUninitialized(oldLength + newElems.Length);
 
-            new UnsafeSpan<T>((T*)self.GetUnsafePtr() + oldLength, valueSpan.Length).CopyFrom(valueSpan);
+            new UnsafeSpan<T>((T*)self.GetUnsafePtr() + oldLength, newElems.Length).CopyFrom(newElems);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

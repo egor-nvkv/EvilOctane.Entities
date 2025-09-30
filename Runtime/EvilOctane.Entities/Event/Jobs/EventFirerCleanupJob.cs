@@ -18,7 +18,6 @@ namespace EvilOctane.Entities.Internal
         [ReadOnly]
         public ComponentLookup<CleanupComponentsAliveTag> EntityLookup;
 
-        [ReadOnly]
         public BufferTypeHandle<EventBuffer.EntityElement> EventEntityBufferTypeHandle;
 
         public AllocatorManager.AllocatorHandle TempAllocator;
@@ -32,11 +31,10 @@ namespace EvilOctane.Entities.Internal
 
             if (Hint.Likely(chunk.Has<EventBuffer.EntityElement>()))
             {
-                BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor = chunk.GetBufferAccessorRO(ref EventEntityBufferTypeHandle);
+                BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor = chunk.GetBufferAccessorRW(ref EventEntityBufferTypeHandle);
 
                 // Get Entities
-                // Skip clearing Buffers
-                UnsafeList<Entity> entitiesToDestroyList = EntityOwner.ExtractAliveOwnedEntityList(eventEntityBufferAccessor, EntityLookup, TempAllocator, clearBuffers: false);
+                UnsafeList<Entity> entitiesToDestroyList = EntityOwner.ExtractAliveOwnedEntityList(eventEntityBufferAccessor, EntityLookup, TempAllocator, clearBuffers: true);
 
                 if (Hint.Likely(!entitiesToDestroyList.IsEmpty))
                 {

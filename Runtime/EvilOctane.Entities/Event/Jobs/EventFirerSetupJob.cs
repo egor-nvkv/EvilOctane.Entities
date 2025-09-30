@@ -1,5 +1,6 @@
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -20,6 +21,30 @@ namespace EvilOctane.Entities.Internal
         public AllocatorManager.AllocatorHandle TempAllocator;
         public EntityCommandBuffer.ParallelWriter CommandBuffer;
 
+        private static void DeserializeEventTypes(
+            UnsafeSpan<EventSetup.FirerDeclaredEventTypeBufferElement> setupDeclaredEventTypeSpanRO,
+            ref UnsafeHashMap<TypeIndex, int> eventTypeSubscriberCapacityMap)
+        {
+            HashMapHelperRef<TypeIndex> mapHelper = eventTypeSubscriberCapacityMap.GetHelperRef();
+            mapHelper.EnsureCapacity(setupDeclaredEventTypeSpanRO.Length);
+
+            for (int eventIndex = 0; eventIndex != setupDeclaredEventTypeSpanRO.Length; ++eventIndex)
+            {
+                EventSetup.FirerDeclaredEventTypeBufferElement setupDeclaredEventType = setupDeclaredEventTypeSpanRO[eventIndex];
+
+                bool typeIndexFound = TypeManager.TryGetTypeIndexFromStableTypeHash(setupDeclaredEventType.EventStableTypeHash, out TypeIndex eventTypeIndex);
+
+                if (Hint.Unlikely(!typeIndexFound))
+                {
+                    // Event Type Index not found
+                    continue;
+                }
+
+                // Register Event Type
+                _ = mapHelper.TryAddNoResize(eventTypeIndex, setupDeclaredEventType.ListenerListStartingCapacity);
+            }
+        }
+
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
             Assert.IsFalse(useEnabledMask);
@@ -30,7 +55,6 @@ namespace EvilOctane.Entities.Internal
             CommandBuffer.RemoveComponent<EventSetup.FirerDeclaredEventTypeBufferElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
 
             // Add runtime components
-
             ComponentTypeSet eventFirerComponentTypeSet = EventSystem.GetEventFirerComponentTypeSet();
             CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, eventFirerComponentTypeSet);
 
@@ -68,31 +92,8 @@ namespace EvilOctane.Entities.Internal
             DeserializeEventTypes(setupDeclaredEventTypeSpanRO, ref eventTypeSubscriberCapacityMap);
 
             // Setup Event Subscription Registry
-
             DynamicBuffer<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorage = CommandBuffer.SetBuffer<EventSubscriptionRegistry.StorageBufferElement>(sortKey, entity);
             EventSubscriptionRegistry.Create(eventSubscriptionRegistryStorage, ref eventTypeSubscriberCapacityMap);
-        }
-
-        private void DeserializeEventTypes(
-            UnsafeSpan<EventSetup.FirerDeclaredEventTypeBufferElement> setupDeclaredEventTypeSpanRO,
-            ref UnsafeHashMap<TypeIndex, int> eventTypeSubscriberCapacityMap)
-        {
-            HashMapHelperRef<TypeIndex> eventTypeSubscriberCapacityMapHelper = eventTypeSubscriberCapacityMap.GetHelperRef();
-            eventTypeSubscriberCapacityMapHelper.EnsureCapacity(setupDeclaredEventTypeSpanRO.Length);
-
-            for (int eventIndex = 0; eventIndex != setupDeclaredEventTypeSpanRO.Length; ++eventIndex)
-            {
-                EventSetup.FirerDeclaredEventTypeBufferElement setupDeclaredEventType = setupDeclaredEventTypeSpanRO[eventIndex];
-
-                if (!TypeManager.TryGetTypeIndexFromStableTypeHash(setupDeclaredEventType.EventStableTypeHash, out TypeIndex eventTypeIndex))
-                {
-                    // Event Type Index not found
-                    continue;
-                }
-
-                // Register Event Type
-                _ = eventTypeSubscriberCapacityMapHelper.TryAddNoResize(eventTypeIndex, setupDeclaredEventType.ListenerListStartingCapacity);
-            }
         }
     }
 }

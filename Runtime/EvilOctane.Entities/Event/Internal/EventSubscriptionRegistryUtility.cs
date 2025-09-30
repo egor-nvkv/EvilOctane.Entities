@@ -55,7 +55,9 @@ namespace EvilOctane.Entities.Internal
 
         public static void Create(DynamicBuffer<StorageBufferElement> buffer, ref UnsafeHashMap<TypeIndex, int> eventTypeSubscriberCapacityMap)
         {
-            if (Hint.Unlikely(eventTypeSubscriberCapacityMap.IsEmpty))
+            Assert.IsTrue(buffer.IsEmpty);
+
+            if (Hint.Unlikely(eventTypeSubscriberCapacityMap.Count == 0))
             {
                 // Empty
                 return;
@@ -64,7 +66,7 @@ namespace EvilOctane.Entities.Internal
             // Calculate size
 
             nint requiredSize = GetRequiredAllocationSize(ref eventTypeSubscriberCapacityMap, out nint listsOffset);
-            buffer.ResizeUninitialized(AllocationSizeToStorageLength(requiredSize));
+            buffer.ResizeUninitializedTrashOldData(AllocationSizeToStorageLength(requiredSize));
 
             byte* bufferPtr = (byte*)buffer.GetUnsafePtr();
 
@@ -100,6 +102,8 @@ namespace EvilOctane.Entities.Internal
 
         public static void CopyTo(DynamicBuffer<StorageBufferElement> buffer, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator)
         {
+            Assert.IsTrue(IsCreated(buffer));
+
             EventSubscriptionMapHeader* subscriptionMap = GetSubscriptionMap(buffer, readOnly: true);
 
             HashMapHelperRef<TypeIndex> mapHelper = eventTypeListenerListMap.GetHelperRef();
@@ -173,12 +177,14 @@ namespace EvilOctane.Entities.Internal
                 // Trim
 
                 buffer.SetLengthNoResize(requiredLength);
+
+                // Unfortunately, this memcpy's old data
                 buffer.TrimExcess();
             }
             else
             {
                 // Resize
-                buffer.ResizeUninitialized(requiredLength);
+                buffer.ResizeUninitializedTrashOldData(requiredLength);
             }
 
             byte* bufferPtr = (byte*)buffer.GetUnsafePtr();
