@@ -7,7 +7,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
 using Unity.Mathematics;
-using static EvilOctane.Entities.Internal.EventFirer.EventSubscriptionRegistry;
+using static EvilOctane.Entities.Internal.EventFirerInternal.EventSubscriptionRegistry;
 using static Unity.Collections.CollectionHelper;
 using static Unity.Collections.CollectionHelper2;
 using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
@@ -101,7 +101,7 @@ namespace EvilOctane.Entities.Internal
             }
         }
 
-        public static void CopyTo(DynamicBuffer<Storage> storage, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator)
+        public static void CopyTo(DynamicBuffer<Storage> storage, BufferLookup<EventListener.EventDeclarationBuffer.TypeElement> entityLookup, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator)
         {
             Assert.IsTrue(IsCreated(storage));
 
@@ -158,13 +158,27 @@ namespace EvilOctane.Entities.Internal
                     }
                 }
 
-            AddRange:
-                listenerListCapacityPair.AddRangeNoResize(EventListenerList.AsSpan(list));
+            Copy:
+                foreach (Entity listenerEntity in EventListenerList.AsSpan(list))
+                {
+                    bool exists = entityLookup.EntityExists(listenerEntity);
+
+                    if (Hint.Unlikely(!exists))
+                    {
+                        // TODO: profile counter
+
+                        // Destroyed
+                        continue;
+                    }
+
+                    listenerListCapacityPair.AddNoResize(listenerEntity);
+                }
+
                 continue;
 
             Allocate:
                 listenerListCapacityPair = new EventListenerListCapacityPair(list->Length, tempAllocator);
-                goto AddRange;
+                goto Copy;
             }
         }
 
@@ -180,9 +194,7 @@ namespace EvilOctane.Entities.Internal
                 // Trim
 
                 storage.SetLengthNoResize(requiredLength);
-
-                // Unfortunately, this memcpy's old data
-                storage.TrimExcess();
+                storage.TrimExcessTrashOldData();
             }
             else
             {

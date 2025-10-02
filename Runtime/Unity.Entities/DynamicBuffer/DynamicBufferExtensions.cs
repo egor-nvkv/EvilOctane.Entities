@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 using static Unity.Entities.LowLevel.Unsafe.DynamicBufferUnsafeExtensions;
 
 namespace Unity.Entities
@@ -58,6 +59,49 @@ namespace Unity.Entities
 #else
             BufferHeader.EnsureCapacity(exposed.m_Buffer, length, sizeof(T), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.TrashOldData, false, 0);
 #endif
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="DynamicBuffer{T}.TrimExcess"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="length"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void TrimExcessTrashOldData<T>(this DynamicBuffer<T> self)
+            where T : unmanaged
+        {
+            ref DynamicBufferExposed<T> exposed = ref UnsafeUtility2.Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+
+            CheckWriteAccessAndInvalidateArrayAliases(ref exposed);
+
+            byte* oldPtr = exposed.m_Buffer->Pointer;
+            int length = exposed.m_Buffer->Length;
+
+            if (length == exposed.m_Buffer->Capacity || oldPtr == null)
+            {
+                return;
+            }
+
+            bool isInternal;
+            byte* newPtr;
+
+            // If the size fits in the internal buffer, prefer to move the elements back there.
+            if (length <= exposed.m_InternalCapacity)
+            {
+                newPtr = (byte*)(exposed.m_Buffer + 1);
+                isInternal = true;
+            }
+            else
+            {
+                newPtr = (byte*)Memory.Unmanaged.Allocate(length * sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
+                isInternal = false;
+            }
+
+            exposed.m_Buffer->Capacity = math.max(length, exposed.m_InternalCapacity);
+            exposed.m_Buffer->Pointer = isInternal ? null : newPtr;
+
+            Memory.Unmanaged.Free(oldPtr, Allocator.Persistent);
         }
 
         /// <summary>

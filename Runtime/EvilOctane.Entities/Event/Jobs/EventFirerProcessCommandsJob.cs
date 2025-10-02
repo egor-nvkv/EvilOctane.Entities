@@ -17,7 +17,7 @@ namespace EvilOctane.Entities.Internal
     {
         // Firer
 
-        public BufferTypeHandle<EventFirer.EventSubscriptionRegistry.Storage> SubscriptionRegistryStorageTypeHandle;
+        public BufferTypeHandle<EventFirerInternal.EventSubscriptionRegistry.Storage> SubscriptionRegistryStorageTypeHandle;
         public BufferTypeHandle<EventFirer.EventSubscriptionRegistry.CommandBufferElement> SubscriptionRegistryCommandBufferTypeHandle;
 
         // Listener
@@ -33,7 +33,7 @@ namespace EvilOctane.Entities.Internal
         {
             Assert.IsFalse(useEnabledMask);
 
-            BufferAccessor<EventFirer.EventSubscriptionRegistry.Storage> registryStorageAccessor = chunk.GetBufferAccessorRW(ref SubscriptionRegistryStorageTypeHandle);
+            BufferAccessor<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorageAccessor = chunk.GetBufferAccessorRW(ref SubscriptionRegistryStorageTypeHandle);
             BufferAccessor<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandBufferAccessor = chunk.GetBufferAccessorRW(ref SubscriptionRegistryCommandBufferTypeHandle);
 
             UnsafeList<TypeIndex> typeIndexList = new();
@@ -49,7 +49,7 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                DynamicBuffer<EventFirer.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
+                DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
                 UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO = registryCommandBuffer.AsSpanRO();
 
                 bool isFull = !ExecuteTryAddNoResize(
@@ -130,7 +130,7 @@ namespace EvilOctane.Entities.Internal
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool ExecuteTryAddNoResize(
-            DynamicBuffer<EventFirer.EventSubscriptionRegistry.Storage> registryStorage,
+            DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
             ref UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO,
             ref UnsafeList<TypeIndex> typeIndexList,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap)
@@ -200,7 +200,7 @@ namespace EvilOctane.Entities.Internal
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private void ExecuteTempMap(
-            DynamicBuffer<EventFirer.EventSubscriptionRegistry.Storage> registryStorage,
+            DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
             UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO,
             ref UnsafeList<TypeIndex> typeIndexList,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
@@ -273,7 +273,7 @@ namespace EvilOctane.Entities.Internal
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool SubscribeAutoTryNoResize(
-            DynamicBuffer<EventFirer.EventSubscriptionRegistry.Storage> registryStorage,
+            DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
             UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
             Entity listenerEntity)
@@ -294,7 +294,7 @@ namespace EvilOctane.Entities.Internal
                     eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerMap);
                 }
 
-                EventSubscriptionRegistryFunctions.CopyTo(registryStorage, ref eventTypeListenerListMap, TempAllocator);
+                EventSubscriptionRegistryFunctions.CopyTo(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
 
                 // Process remainder
 
@@ -312,7 +312,7 @@ namespace EvilOctane.Entities.Internal
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool SubscribeManualTryNoResize(
-            DynamicBuffer<EventFirer.EventSubscriptionRegistry.Storage> registryStorage,
+            DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
             Entity listenerEntity,
             TypeIndex eventTypeIndex)
@@ -332,7 +332,7 @@ namespace EvilOctane.Entities.Internal
                     eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerMap);
                 }
 
-                EventSubscriptionRegistryFunctions.CopyTo(registryStorage, ref eventTypeListenerListMap, TempAllocator);
+                EventSubscriptionRegistryFunctions.CopyTo(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
 
                 // Process remainder
 

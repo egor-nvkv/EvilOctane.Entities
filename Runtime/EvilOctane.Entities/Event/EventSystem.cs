@@ -11,58 +11,16 @@ namespace EvilOctane.Entities
         // Firer
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ComponentTypeSet GetEventFirerComponentTypeSet(bool includeAllocatedTag = true)
+        public static void SetUpDeferredEventFirerForImmediateSubscription(EntityCommandBuffer commandBuffer, Entity eventFirerEntity)
         {
-            return includeAllocatedTag ?
-                ComponentTypeSetUtility.Create<
+            ComponentTypeSet componentTypeSet = ComponentTypeSetUtility.Create<
                 // Allocated Tag
-                CleanupComponentsAliveTag,
+                EventFirer.IsAliveTag,
 
                 // Listener Registry
-                EventFirer.EventSubscriptionRegistry.Storage,
-                EventFirer.EventSubscriptionRegistry.CommandBufferElement,
+                EventFirer.EventSubscriptionRegistry.CommandBufferElement>();
 
-                // Event Buffer
-                EventFirer.EventBuffer.EntityElement,
-                EventFirer.EventBuffer.TypeElement>() :
-
-                ComponentTypeSetUtility.Create<
-                // Listener Registry
-                EventFirer.EventSubscriptionRegistry.Storage,
-                EventFirer.EventSubscriptionRegistry.CommandBufferElement,
-
-                // Event Buffer
-                EventFirer.EventBuffer.EntityElement,
-                EventFirer.EventBuffer.TypeElement>();
-        }
-
-        // Listener
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ComponentTypeSet GetEventListenerComponentTypeSet()
-        {
-            return ComponentTypeSetUtility.Create<
-                // Settings
-                EventListener.EventDeclarationBuffer.TypeElement,
-
-                // Receive Buffer
-                EventListener.EventReceiveBuffer.Element
-
-#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
-                ,
-                EventListener.EventReceiveBuffer.LockComponent
-#endif
-                >();
-        }
-
-        public static void AddEventListenerComponents(EntityCommandBuffer commandBuffer, Entity eventListenerEntity)
-        {
-            commandBuffer.AddComponent(eventListenerEntity, GetEventListenerComponentTypeSet());
-        }
-
-        public static void AddEventListenerComponents(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventListenerEntity)
-        {
-            commandBuffer.AddComponent(sortKey, eventListenerEntity, GetEventListenerComponentTypeSet());
+            commandBuffer.AddComponent(eventFirerEntity, componentTypeSet);
         }
 
         // Subscribe

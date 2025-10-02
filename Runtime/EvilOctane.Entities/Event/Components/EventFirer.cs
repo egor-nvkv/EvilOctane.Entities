@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Unity.Entities;
 using Unity.Mathematics;
 using static Unity.Collections.CollectionHelper;
@@ -7,10 +6,14 @@ using static Unity.Collections.CollectionHelper2;
 using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility;
 using EventListenerListHeader = Unity.Collections.LowLevel.Unsafe.InlineListHeader<Unity.Entities.Entity>;
 
-namespace EvilOctane.Entities.Internal
+namespace EvilOctane.Entities
 {
     public struct EventFirer
     {
+        public struct IsAliveTag : ICleanupComponentsAliveTag
+        {
+        }
+
         public struct EventDeclarationBuffer
         {
             [InternalBufferCapacity(0)]
@@ -58,13 +61,6 @@ namespace EvilOctane.Entities.Internal
 
         public struct EventSubscriptionRegistry
         {
-            [InternalBufferCapacity(0)]
-            [StructLayout(LayoutKind.Sequential, Size = 1)]
-            public struct Storage : ICleanupBufferElementData
-            {
-                public byte RawByte;
-            }
-
             [InternalBufferCapacity(0)]
             public struct CommandBufferElement : ICleanupBufferElementData
             {

@@ -26,10 +26,10 @@ namespace EvilOctane.Entities.Tests
             DynamicBuffer<EntityOwnerBufferElement> entityOwnerBuffer = world.EntityManager.AddBuffer<EntityOwnerBufferElement>(ownerEntity);
             _ = entityOwnerBuffer.Add(new EntityOwnerBufferElement() { OwnedEntity = ownedEntity });
 
-            _ = world.EntityManager.AddComponent<CleanupComponentsAliveTag>(ownerEntity);
+            _ = world.EntityManager.AddComponent<IsAliveTag>(ownerEntity);
 
             _ = world.EntityManager.AddComponentData(ownedEntity, new OwnerEntityComponent() { OwnerEntity = ownerEntity });
-            _ = world.EntityManager.AddComponent<CleanupComponentsAliveTag>(ownedEntity);
+            _ = world.EntityManager.AddComponent<IsAliveTag>(ownedEntity);
 
             // Update with Allocated Tag present
             world.Update();
@@ -38,7 +38,7 @@ namespace EvilOctane.Entities.Tests
             Assert.IsTrue(world.EntityManager.HasComponent<OwnerEntityComponent>(ownedEntity));
 
             // Remove Allocated Tag
-            _ = world.EntityManager.RemoveComponent<CleanupComponentsAliveTag>(ownedEntity);
+            _ = world.EntityManager.RemoveComponent<IsAliveTag>(ownedEntity);
 
             // Update with Allocated Tag removed
             world.Update();
@@ -65,7 +65,7 @@ namespace EvilOctane.Entities.Tests
 
             EntityQuery query = SystemAPI.QueryBuilder()
                 .WithAll<OwnerEntityComponent>()
-                .WithNone<CleanupComponentsAliveTag>()
+                .WithNone<IsAliveTag>()
                 .Build();
 
             EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);

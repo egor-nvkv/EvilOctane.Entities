@@ -21,7 +21,7 @@ namespace EvilOctane.Entities.Internal
 
         // Firer
 
-        public BufferTypeHandle<EventFirer.EventSubscriptionRegistry.Storage> SubscriptionRegistryStorageTypeHandle;
+        public BufferTypeHandle<EventFirerInternal.EventSubscriptionRegistry.Storage> SubscriptionRegistryStorageTypeHandle;
 
         [ReadOnly]
         public BufferTypeHandle<EventFirer.EventBuffer.EntityElement> EventEntityBufferTypeHandle;
@@ -41,7 +41,7 @@ namespace EvilOctane.Entities.Internal
 
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
-            BufferAccessor<EventFirer.EventSubscriptionRegistry.Storage> registryStorageAccessor = chunk.GetBufferAccessorRW(ref SubscriptionRegistryStorageTypeHandle);
+            BufferAccessor<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorageAccessor = chunk.GetBufferAccessorRW(ref SubscriptionRegistryStorageTypeHandle);
             BufferAccessor<EventFirer.EventBuffer.EntityElement> eventEntityBufferAccessor = chunk.GetBufferAccessorRO(ref EventEntityBufferTypeHandle);
             BufferAccessor<EventFirer.EventBuffer.TypeElement> eventTypeBufferAccessor = chunk.GetBufferAccessorRO(ref EventTypeBufferTypeHandle);
 
@@ -57,7 +57,7 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                DynamicBuffer<EventFirer.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
+                DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
                 EventListenerMapHeader* listenerMap = EventSubscriptionRegistryFunctions.GetListenerMap(registryStorage, readOnly: true);
 
                 DynamicBuffer<EventFirer.EventBuffer.TypeElement> eventTypeBuffer = eventTypeBufferAccessor[entityIndex];

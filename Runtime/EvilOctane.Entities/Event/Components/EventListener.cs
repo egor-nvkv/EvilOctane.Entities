@@ -1,11 +1,7 @@
 using System.Runtime.CompilerServices;
 using Unity.Entities;
 
-#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
-using Unity.Collections.LowLevel.Unsafe;
-#endif
-
-namespace EvilOctane.Entities.Internal
+namespace EvilOctane.Entities
 {
     public struct EventListener
     {
@@ -46,13 +42,6 @@ namespace EvilOctane.Entities.Internal
                 public Entity EventFirerEntity;
                 public Entity EventEntity;
             }
-
-#if EVIL_OCTANE_ENABLE_PARALLEL_EVENT_ROUTING
-            public struct LockComponent : IComponentData
-            {
-                public Spinner Spinner;
-            }
-#endif
         }
     }
 }

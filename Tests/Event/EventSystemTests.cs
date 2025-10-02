@@ -233,7 +233,7 @@ namespace EvilOctane.Entities.Tests
         private static void CleanupEventFirers(EntityManager entityManager, NativeArray<Entity> eventFirerEntities)
         {
             EntityCommandBuffer commandBuffer = new(entityManager.World.UpdateAllocator.ToAllocator);
-            commandBuffer.RemoveComponent<CleanupComponentsAliveTag>(eventFirerEntities);
+            commandBuffer.RemoveComponent<EventFirer.IsAliveTag>(eventFirerEntities);
             commandBuffer.Playback(entityManager);
         }
 

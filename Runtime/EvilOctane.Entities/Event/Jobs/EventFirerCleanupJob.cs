@@ -22,7 +22,7 @@ namespace EvilOctane.Entities.Internal
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
             // Remove cleanup components
-            ComponentTypeSet componentTypeSet = EventSystem.GetEventFirerComponentTypeSet(includeAllocatedTag: false);
+            ComponentTypeSet componentTypeSet = EventSystemInternal.GetEventFirerComponentTypeSet(includeIsAliveTag: false);
             CommandBuffer.RemoveComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
         }
     }

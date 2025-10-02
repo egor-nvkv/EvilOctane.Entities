@@ -31,7 +31,7 @@ namespace EvilOctane.Entities.Internal
             CommandBuffer.RemoveComponent<EventListener.EventDeclarationBuffer.StableTypeElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
 
             // Add runtime components
-            ComponentTypeSet componentTypeSet = EventSystem.GetEventListenerComponentTypeSet();
+            ComponentTypeSet componentTypeSet = EventSystemInternal.GetEventListenerComponentTypeSet();
             CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
 
             // Setup runtime components

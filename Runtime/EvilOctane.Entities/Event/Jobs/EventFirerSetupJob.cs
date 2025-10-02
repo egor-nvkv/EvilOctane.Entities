@@ -30,7 +30,7 @@ namespace EvilOctane.Entities.Internal
             CommandBuffer.RemoveComponent<EventFirer.EventDeclarationBuffer.StableTypeElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
 
             // Add runtime components
-            ComponentTypeSet componentTypeSet = EventSystem.GetEventFirerComponentTypeSet();
+            ComponentTypeSet componentTypeSet = EventSystemInternal.GetEventFirerComponentTypeSet();
             CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
 
             // Setup runtime components
@@ -67,7 +67,7 @@ namespace EvilOctane.Entities.Internal
             EventDeclarationFunctions.DeserializeEventTypes(eventStableTypeSpanRO, ref eventTypeListenerCapacityMap);
 
             // Setup Event Listener Registry
-            DynamicBuffer<EventFirer.EventSubscriptionRegistry.Storage> registryStorage = CommandBuffer.SetBuffer<EventFirer.EventSubscriptionRegistry.Storage>(sortKey, entity);
+            DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = CommandBuffer.SetBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage>(sortKey, entity);
             EventSubscriptionRegistryFunctions.Create(registryStorage, ref eventTypeListenerCapacityMap);
         }
     }

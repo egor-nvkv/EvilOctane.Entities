@@ -6,8 +6,8 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 
-[assembly: RegisterGenericJobType(typeof(EntityOwnerBufferCleanupJobChunk<EntityOwnerBufferElement, CleanupComponentsAliveTag>))]
-[assembly: RegisterGenericJobType(typeof(EntityOwnerBufferCleanupJobChunkParallel<EntityOwnerBufferElement, CleanupComponentsAliveTag>))]
+[assembly: RegisterGenericJobType(typeof(EntityOwnerBufferCleanupJobChunk<EntityOwnerBufferElement, IsAliveTag>))]
+[assembly: RegisterGenericJobType(typeof(EntityOwnerBufferCleanupJobChunkParallel<EntityOwnerBufferElement, IsAliveTag>))]
 
 namespace EvilOctane.Entities.Tests
 {
@@ -29,7 +29,7 @@ namespace EvilOctane.Entities.Tests
             DynamicBuffer<EntityOwnerBufferElement> entityOwnerBuffer = world.EntityManager.AddBuffer<EntityOwnerBufferElement>(ownerEntity);
             _ = entityOwnerBuffer.Add(new EntityOwnerBufferElement() { OwnedEntity = ownedEntity });
 
-            _ = world.EntityManager.AddComponent<CleanupComponentsAliveTag>(ownerEntity);
+            _ = world.EntityManager.AddComponent<IsAliveTag>(ownerEntity);
 
             // Update with Allocated Tag present
             world.Update();
@@ -38,7 +38,7 @@ namespace EvilOctane.Entities.Tests
             Assert.IsTrue(world.EntityManager.Exists(ownedEntity));
 
             // Remove Allocated Tag
-            _ = world.EntityManager.RemoveComponent<CleanupComponentsAliveTag>(ownerEntity);
+            _ = world.EntityManager.RemoveComponent<IsAliveTag>(ownerEntity);
 
             // Update with Allocated Tag removed
             world.Update();
@@ -67,17 +67,17 @@ namespace EvilOctane.Entities.Tests
 
             EntityQuery query = SystemAPI.QueryBuilder()
                 .WithAllRW<EntityOwnerBufferElement>()
-                .WithNone<CleanupComponentsAliveTag>()
+                .WithNone<IsAliveTag>()
                 .Build();
 
             EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
 
             if (RunParallel)
             {
-                new EntityOwnerBufferCleanupJobChunkParallel<EntityOwnerBufferElement, CleanupComponentsAliveTag>()
+                new EntityOwnerBufferCleanupJobChunkParallel<EntityOwnerBufferElement, IsAliveTag>()
                 {
                     EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
-                    EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentsAliveTag>(isReadOnly: true),
+                    EntityLookup = SystemAPI.GetComponentLookup<IsAliveTag>(isReadOnly: true),
                     EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(),
                     TempAllocator = state.WorldUpdateAllocator,
                     CommandBuffer = commandBuffer.AsParallelWriter()
@@ -85,10 +85,10 @@ namespace EvilOctane.Entities.Tests
             }
             else
             {
-                new EntityOwnerBufferCleanupJobChunk<EntityOwnerBufferElement, CleanupComponentsAliveTag>()
+                new EntityOwnerBufferCleanupJobChunk<EntityOwnerBufferElement, IsAliveTag>()
                 {
                     EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
-                    EntityLookup = SystemAPI.GetComponentLookup<CleanupComponentsAliveTag>(isReadOnly: true),
+                    EntityLookup = SystemAPI.GetComponentLookup<IsAliveTag>(isReadOnly: true),
                     EntityOwnerBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EntityOwnerBufferElement>(),
                     TempAllocator = state.WorldUpdateAllocator,
                     CommandBuffer = commandBuffer
