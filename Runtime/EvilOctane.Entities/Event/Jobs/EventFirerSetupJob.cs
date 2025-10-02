@@ -1,6 +1,5 @@
 using Unity.Assertions;
 using Unity.Burst;
-using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -16,34 +15,10 @@ namespace EvilOctane.Entities.Internal
         public EntityTypeHandle EntityTypeHandle;
 
         [ReadOnly]
-        public BufferTypeHandle<EventSetup.FirerDeclaredEventTypeBufferElement> SetupDeclaredEventTypeBufferTypeHandle;
+        public BufferTypeHandle<EventFirer.EventDeclarationBuffer.StableTypeElement> EventStableTypeBufferTypeHandle;
 
         public AllocatorManager.AllocatorHandle TempAllocator;
         public EntityCommandBuffer.ParallelWriter CommandBuffer;
-
-        private static void DeserializeEventTypes(
-            UnsafeSpan<EventSetup.FirerDeclaredEventTypeBufferElement> setupDeclaredEventTypeSpanRO,
-            ref UnsafeHashMap<TypeIndex, int> eventTypeSubscriberCapacityMap)
-        {
-            HashMapHelperRef<TypeIndex> mapHelper = eventTypeSubscriberCapacityMap.GetHelperRef();
-            mapHelper.EnsureCapacity(setupDeclaredEventTypeSpanRO.Length);
-
-            for (int eventIndex = 0; eventIndex != setupDeclaredEventTypeSpanRO.Length; ++eventIndex)
-            {
-                EventSetup.FirerDeclaredEventTypeBufferElement setupDeclaredEventType = setupDeclaredEventTypeSpanRO[eventIndex];
-
-                bool typeIndexFound = TypeManager.TryGetTypeIndexFromStableTypeHash(setupDeclaredEventType.EventStableTypeHash, out TypeIndex eventTypeIndex);
-
-                if (Hint.Unlikely(!typeIndexFound))
-                {
-                    // Event Type Index not found
-                    continue;
-                }
-
-                // Register Event Type
-                _ = mapHelper.TryAddNoResize(eventTypeIndex, setupDeclaredEventType.ListenerListStartingCapacity);
-            }
-        }
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
@@ -52,32 +27,32 @@ namespace EvilOctane.Entities.Internal
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
             // Remove setup component
-            CommandBuffer.RemoveComponent<EventSetup.FirerDeclaredEventTypeBufferElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
+            CommandBuffer.RemoveComponent<EventFirer.EventDeclarationBuffer.StableTypeElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
 
             // Add runtime components
-            ComponentTypeSet eventFirerComponentTypeSet = EventSystem.GetEventFirerComponentTypeSet();
-            CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, eventFirerComponentTypeSet);
+            ComponentTypeSet componentTypeSet = EventSystem.GetEventFirerComponentTypeSet();
+            CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
 
             // Setup runtime components
 
-            BufferAccessor<EventSetup.FirerDeclaredEventTypeBufferElement> setupDeclaredEventTypeBufferAccessor = chunk.GetBufferAccessorRO(ref SetupDeclaredEventTypeBufferTypeHandle);
+            BufferAccessor<EventFirer.EventDeclarationBuffer.StableTypeElement> eventStableTypeBufferAccessor = chunk.GetBufferAccessorRO(ref EventStableTypeBufferTypeHandle);
 
-            UnsafeHashMap<TypeIndex, int> eventTypeSubscriberCapacityMap = UnsafeHashMapUtility.CreateHashMap<TypeIndex, int>(16, 16, TempAllocator);
+            UnsafeHashMap<TypeIndex, int> eventTypeListenerCapacityMap = UnsafeHashMapUtility.CreateHashMap<TypeIndex, int>(16, 16, TempAllocator);
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
                 Entity entity = entityPtr[entityIndex];
-                DynamicBuffer<EventSetup.FirerDeclaredEventTypeBufferElement> setupDeclaredEventTypeBuffer = setupDeclaredEventTypeBufferAccessor[entityIndex];
+                DynamicBuffer<EventFirer.EventDeclarationBuffer.StableTypeElement> eventStableTypeBuffer = eventStableTypeBufferAccessor[entityIndex];
 
                 SetupEventFirer(
                     unfilteredChunkIndex,
                     entity,
-                    setupDeclaredEventTypeBuffer.AsSpanRO(),
-                    ref eventTypeSubscriberCapacityMap);
+                    eventStableTypeBuffer.AsSpanRO(),
+                    ref eventTypeListenerCapacityMap);
 
                 if (entityIndex != chunk.Count - 1)
                 {
-                    eventTypeSubscriberCapacityMap.Clear();
+                    eventTypeListenerCapacityMap.Clear();
                 }
             }
         }
@@ -85,15 +60,15 @@ namespace EvilOctane.Entities.Internal
         private void SetupEventFirer(
             int sortKey,
             Entity entity,
-            UnsafeSpan<EventSetup.FirerDeclaredEventTypeBufferElement> setupDeclaredEventTypeSpanRO,
-            ref UnsafeHashMap<TypeIndex, int> eventTypeSubscriberCapacityMap)
+            UnsafeSpan<EventFirer.EventDeclarationBuffer.StableTypeElement> eventStableTypeSpanRO,
+            ref UnsafeHashMap<TypeIndex, int> eventTypeListenerCapacityMap)
         {
             // Deserialize Event Types
-            DeserializeEventTypes(setupDeclaredEventTypeSpanRO, ref eventTypeSubscriberCapacityMap);
+            EventDeclarationFunctions.DeserializeEventTypes(eventStableTypeSpanRO, ref eventTypeListenerCapacityMap);
 
-            // Setup Event Subscription Registry
-            DynamicBuffer<EventSubscriptionRegistry.StorageBufferElement> eventSubscriptionRegistryStorage = CommandBuffer.SetBuffer<EventSubscriptionRegistry.StorageBufferElement>(sortKey, entity);
-            EventSubscriptionRegistry.Create(eventSubscriptionRegistryStorage, ref eventTypeSubscriberCapacityMap);
+            // Setup Event Listener Registry
+            DynamicBuffer<EventFirer.EventSubscriptionRegistry.Storage> registryStorage = CommandBuffer.SetBuffer<EventFirer.EventSubscriptionRegistry.Storage>(sortKey, entity);
+            EventSubscriptionRegistryFunctions.Create(registryStorage, ref eventTypeListenerCapacityMap);
         }
     }
 }

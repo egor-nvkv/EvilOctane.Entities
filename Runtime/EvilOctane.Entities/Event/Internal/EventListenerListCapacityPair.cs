@@ -1,6 +1,7 @@
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -11,12 +12,12 @@ namespace EvilOctane.Entities.Internal
         public int ListenerListCapacity;
 
         /// <summary>
-        /// <see cref="EventSetup.FirerDeclaredEventTypeBufferElement.ListenerListStartingCapacity"/>
+        /// <see cref="EventFirer.EventDeclarationBuffer.StableTypeElement.ListenerListInitialCapacity"/>
         /// </summary>
         public int ListenerListStartingCapacity;
 
         public readonly bool IsCreated => ListenerListPtr != null;
-        public readonly int ListenerRequiredCapacity => IsCreated ? ListenerListLength : ListenerListStartingCapacity;
+        public readonly int ListenerListRequiredCapacity => math.max(ListenerListLength, ListenerListStartingCapacity);
 
         public EventListenerListCapacityPair(int capacity, AllocatorManager.AllocatorHandle allocator)
         {

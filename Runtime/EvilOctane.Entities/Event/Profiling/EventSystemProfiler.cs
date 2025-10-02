@@ -2,6 +2,7 @@
 using Unity.Burst;
 using Unity.Profiling;
 using UnityEngine;
+using static Unity.Burst.SharedStatic<Unity.Profiling.ProfilerCounterValue<int>>;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -13,31 +14,20 @@ namespace EvilOctane.Entities.Internal
     {
         public static readonly ProfilerCategory ProfilerCategory = ProfilerCategory.Scripts;
 
-        public const string DuplicateSubscribes = "Duplicate Subscribes";
-        public const string PhantomUnsubscribes = "Phantom Unsubscribes";
+        public const string DuplicateSubscribes = "Duplicate Listen";
+        public const string PhantomUnsubscribes = "Phantom Stop Listening";
         public const string PhantomListeners = "Phantom Listeners";
 
         public const string EventsFired = "Events Fired";
         public const string EventsRouted = "Events Routed";
         public const string EventsNotRouted = "Events Not Routed";
 
-        private struct DuplicateSubscribesTag { }
-        public static readonly SharedStatic<ProfilerCounterValue<int>> DuplicateSubscribesCounter = SharedStatic<ProfilerCounterValue<int>>.GetOrCreate<DuplicateSubscribesTag>();
-
-        private struct PhantomUnsubscribesTag { }
-        public static readonly SharedStatic<ProfilerCounterValue<int>> PhantomUnsubscribesCounter = SharedStatic<ProfilerCounterValue<int>>.GetOrCreate<PhantomUnsubscribesTag>();
-
-        private struct PhantomListenersTag { }
-        public static readonly SharedStatic<ProfilerCounterValue<int>> PhantomListenersCounter = SharedStatic<ProfilerCounterValue<int>>.GetOrCreate<PhantomListenersTag>();
-
-        private struct EventsFiredTag { }
-        public static readonly SharedStatic<ProfilerCounterValue<int>> EventsFiredCounter = SharedStatic<ProfilerCounterValue<int>>.GetOrCreate<EventsFiredTag>();
-
-        private struct EventsRoutedTag { }
-        public static readonly SharedStatic<ProfilerCounterValue<int>> EventsRoutedCounter = SharedStatic<ProfilerCounterValue<int>>.GetOrCreate<EventsRoutedTag>();
-
-        private struct EventsNotRoutedTag { }
-        public static readonly SharedStatic<ProfilerCounterValue<int>> EventsNotRoutedCounter = SharedStatic<ProfilerCounterValue<int>>.GetOrCreate<EventsNotRoutedTag>();
+        public static readonly SharedStatic<ProfilerCounterValue<int>> DuplicateSubscribesCounter = GetOrCreate<DuplicateSubscribesTag>();
+        public static readonly SharedStatic<ProfilerCounterValue<int>> PhantomUnsubscribesCounter = GetOrCreate<PhantomUnsubscribesTag>();
+        public static readonly SharedStatic<ProfilerCounterValue<int>> PhantomListenersCounter = GetOrCreate<PhantomListenersTag>();
+        public static readonly SharedStatic<ProfilerCounterValue<int>> EventsFiredCounter = GetOrCreate<EventsFiredTag>();
+        public static readonly SharedStatic<ProfilerCounterValue<int>> EventsRoutedCounter = GetOrCreate<EventsRoutedTag>();
+        public static readonly SharedStatic<ProfilerCounterValue<int>> EventsNotRoutedCounter = GetOrCreate<EventsNotRoutedTag>();
 
 #if UNITY_EDITOR
         [InitializeOnLoadMethod]
@@ -81,6 +71,13 @@ namespace EvilOctane.Entities.Internal
                 ProfilerMarkerDataUnit.Count,
                 ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush);
         }
+
+        private struct DuplicateSubscribesTag { }
+        private struct PhantomUnsubscribesTag { }
+        private struct PhantomListenersTag { }
+        private struct EventsFiredTag { }
+        private struct EventsRoutedTag { }
+        private struct EventsNotRoutedTag { }
     }
 }
 #endif

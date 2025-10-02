@@ -53,7 +53,7 @@ namespace EvilOctane.Entities.Internal
 
             BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor = chunk.GetBufferAccessorRW(ref EventEntityBufferTypeHandle);
             BufferAccessor<EventBuffer.TypeElement> eventTypeBufferAccessor = chunk.GetBufferAccessorRW(ref EventTypeBufferTypeHandle);
-            EventSubscriptionRegistryComponent* eventSubscriptionRegistryPtr = chunk.GetComponentDataPtrRW(ref EventSubscriptionRegistryComponentTypeHandle);
+            EventSubscriptionRegistryComponent* EventSubscriptionRegistryPtr = chunk.GetComponentDataPtrRW(ref EventSubscriptionRegistryComponentTypeHandle);
 
             // Fill map
 
@@ -61,7 +61,7 @@ namespace EvilOctane.Entities.Internal
                 entityPtr,
                 eventEntityBufferAccessor,
                 eventTypeBufferAccessor,
-                eventSubscriptionRegistryPtr,
+                EventSubscriptionRegistryPtr,
                 ref tempContainers.ListenerEventListMap);
 
             // Route Events
@@ -91,7 +91,7 @@ namespace EvilOctane.Entities.Internal
             Entity* entityPtr,
             BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor,
             BufferAccessor<EventBuffer.TypeElement> eventTypeBufferAccessor,
-            EventSubscriptionRegistryComponent* eventSubscriptionRegistryPtr,
+            EventSubscriptionRegistryComponent* EventSubscriptionRegistryPtr,
             ref UnsafeHashMap<Entity, EventList> listenerEventListMap)
         {
             for (int entityIndex = 0; entityIndex != eventEntityBufferAccessor.Length; ++entityIndex)
@@ -104,9 +104,9 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                ref EventSubscriptionRegistryComponent eventSubscriptionRegistry = ref eventSubscriptionRegistryPtr[entityIndex];
+                ref EventSubscriptionRegistryComponent EventSubscriptionRegistry = ref EventSubscriptionRegistryPtr[entityIndex];
 
-                if (Hint.Unlikely(eventSubscriptionRegistry.IsEmpty))
+                if (Hint.Unlikely(EventSubscriptionRegistry.IsEmpty))
                 {
                     // No subscriptions
 
@@ -125,7 +125,7 @@ namespace EvilOctane.Entities.Internal
                     eventFirerEntity,
                     eventSpanRO,
                     eventTypeSpanRO,
-                    ref eventSubscriptionRegistry,
+                    ref EventSubscriptionRegistry,
                     ref listenerEventListMap);
             }
         }
@@ -134,10 +134,10 @@ namespace EvilOctane.Entities.Internal
             Entity eventFirerEntity,
             UnsafeSpan<EventBuffer.EntityElement> eventSpanRO,
             UnsafeSpan<EventBuffer.TypeElement> eventTypeSpanRO,
-            ref EventSubscriptionRegistryComponent eventSubscriptionRegistry,
+            ref EventSubscriptionRegistryComponent EventSubscriptionRegistry,
             ref UnsafeHashMap<Entity, EventList> listenerEventListMap)
         {
-            HashMapHelperRef<TypeIndex> eventSubscriptionRegistryHelper = eventSubscriptionRegistry.EventTypeIndexListenerListMap.GetHelperRef();
+            HashMapHelperRef<TypeIndex> EventSubscriptionRegistryHelper = EventSubscriptionRegistry.EventTypeIndexListenerListMap.GetHelperRef();
             HashMapHelperRef<Entity> listenerEventListMapHelper = listenerEventListMap.GetHelperRef();
 
             for (int eventIndex = 0; eventIndex != eventSpanRO.Length; ++eventIndex)
@@ -145,7 +145,7 @@ namespace EvilOctane.Entities.Internal
                 TypeIndex eventTypeIndex = eventTypeSpanRO[eventIndex].EventTypeIndex;
 
                 // Listeners to this Event Type
-                ref ListenerList listenerList = ref eventSubscriptionRegistryHelper.TryGetValueRef<ListenerList>(eventTypeIndex, out bool listenerListExists);
+                ref ListenerList listenerList = ref EventSubscriptionRegistryHelper.TryGetValueRef<ListenerList>(eventTypeIndex, out bool listenerListExists);
 
                 if (!listenerListExists)
                 {
@@ -221,7 +221,7 @@ namespace EvilOctane.Entities.Internal
                     // All Listeners destroyed
 
                     listenerList.Dispose();
-                    _ = eventSubscriptionRegistryHelper.Remove(eventTypeIndex);
+                    _ = EventSubscriptionRegistryHelper.Remove(eventTypeIndex);
                 }
 
 #if ENABLE_PROFILER

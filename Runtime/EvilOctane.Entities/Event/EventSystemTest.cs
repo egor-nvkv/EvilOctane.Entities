@@ -1,3 +1,4 @@
+using EvilOctane.Entities.Internal;
 using System.Collections;
 using Unity.Entities;
 using UnityEngine;
@@ -14,8 +15,8 @@ namespace EvilOctane.Entities.Test
             eventFirerEntity = entityManager.CreateEntity();
             entityManager.SetName(eventFirerEntity, "Test Event Firer");
 
-            DynamicBuffer<EventSetup.FirerDeclaredEventTypeBufferElement> declaredEvents = entityManager.AddBuffer<EventSetup.FirerDeclaredEventTypeBufferElement>(eventFirerEntity);
-            _ = declaredEvents.Add(EventSetup.FirerDeclaredEventTypeBufferElement.Default<TestEvent>());
+            DynamicBuffer<EventFirer.EventDeclarationBuffer.StableTypeElement> eventStableTypeBuffer = entityManager.AddBuffer<EventFirer.EventDeclarationBuffer.StableTypeElement>(eventFirerEntity);
+            _ = eventStableTypeBuffer.Add(EventFirer.EventDeclarationBuffer.StableTypeElement.Default<TestEvent>());
         }
 
         private void CreateEventListener(EntityManager entityManager)
@@ -23,8 +24,8 @@ namespace EvilOctane.Entities.Test
             eventListenerEntity = entityManager.CreateEntity();
             entityManager.SetName(eventListenerEntity, "Test Event Listener");
 
-            DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> declaredEvents = entityManager.AddBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement>(eventListenerEntity);
-            _ = declaredEvents.Add(EventSetup.ListenerDeclaredEventTypeBufferElement.Create<TestEvent>());
+            DynamicBuffer<EventListener.EventDeclarationBuffer.StableTypeElement> eventStableTypeBuffer = entityManager.AddBuffer<EventListener.EventDeclarationBuffer.StableTypeElement>(eventListenerEntity);
+            _ = eventStableTypeBuffer.Add(EventListener.EventDeclarationBuffer.StableTypeElement.Create<TestEvent>());
         }
 
         private IEnumerator Start()
@@ -61,7 +62,7 @@ namespace EvilOctane.Entities.Test
 
             yield return null;
 
-            DynamicBuffer<EventReceiveBuffer.Element> eventReceiveBuffer = entityManager.GetBuffer<EventReceiveBuffer.Element>(eventListenerEntity, isReadOnly: true);
+            DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity, isReadOnly: true);
             TestEvent testEvent = entityManager.GetComponentData<TestEvent>(eventReceiveBuffer[0].EventEntity);
 
             Debug.Log($"Received event data: {testEvent.Value}");

@@ -88,7 +88,7 @@ namespace EvilOctane.Entities.Tests
 
         private static UnsafeList<Entity> GetEventEntities(EntityManager entityManager, Entity eventFirerEntity, Allocator allocator = Allocator.Temp)
         {
-            DynamicBuffer<EventBuffer.EntityElement> eventBuffer = entityManager.GetBuffer<EventBuffer.EntityElement>(eventFirerEntity);
+            DynamicBuffer<EventFirer.EventBuffer.EntityElement> eventBuffer = entityManager.GetBuffer<EventFirer.EventBuffer.EntityElement>(eventFirerEntity);
 
             UnsafeList<Entity> entityList = new(eventBuffer.Length, allocator);
             entityList.AddRangeNoResize(eventBuffer.GetUnsafeReadOnlyPtr(), eventBuffer.Length);
@@ -123,16 +123,16 @@ namespace EvilOctane.Entities.Tests
             else
             {
                 // Create Listeners
-                eventFirerEntities = CreateEntities<EventSetup.FirerDeclaredEventTypeBufferElement>(entityManager, eventFirerCount, allocator);
+                eventFirerEntities = CreateEntities<EventFirer.EventDeclarationBuffer.StableTypeElement>(entityManager, eventFirerCount, allocator);
 
                 // Set Up Firers
 
                 foreach (Entity eventFirerEntity in eventFirerEntities)
                 {
-                    DynamicBuffer<EventSetup.FirerDeclaredEventTypeBufferElement> firerDeclaredEventTypeBuffer = commandBuffer.SetBuffer<EventSetup.FirerDeclaredEventTypeBufferElement>(eventFirerEntity);
+                    DynamicBuffer<EventFirer.EventDeclarationBuffer.StableTypeElement> firerDeclaredEventTypeBuffer = commandBuffer.SetBuffer<EventFirer.EventDeclarationBuffer.StableTypeElement>(eventFirerEntity);
 
-                    _ = firerDeclaredEventTypeBuffer.Add(EventSetup.FirerDeclaredEventTypeBufferElement.Default<EventSingle>());
-                    _ = firerDeclaredEventTypeBuffer.Add(EventSetup.FirerDeclaredEventTypeBufferElement.Default<EventBufferElement>());
+                    _ = firerDeclaredEventTypeBuffer.Add(EventFirer.EventDeclarationBuffer.StableTypeElement.Default<EventSingle>());
+                    _ = firerDeclaredEventTypeBuffer.Add(EventFirer.EventDeclarationBuffer.StableTypeElement.Default<EventBufferElement>());
                 }
             }
 
@@ -146,7 +146,7 @@ namespace EvilOctane.Entities.Tests
                 int totalEventListenerCount = eventListenerCount * 3;
 
                 // Create Listeners
-                eventListenerEntities = CreateEntities<EventSetup.ListenerDeclaredEventTypeBufferElement>(entityManager, totalEventListenerCount, allocator);
+                eventListenerEntities = CreateEntities<EventListener.EventDeclarationBuffer.StableTypeElement>(entityManager, totalEventListenerCount, allocator);
 
                 // Set Up Listeners
 
@@ -161,25 +161,25 @@ namespace EvilOctane.Entities.Tests
                     // Listener 0
                     {
                         // Single Event only
-                        DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeBuffer0 = commandBuffer.SetBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement>(eventListenerEntity0);
+                        DynamicBuffer<EventListener.EventDeclarationBuffer.StableTypeElement> listenerDeclaredEventTypeBuffer0 = commandBuffer.SetBuffer<EventListener.EventDeclarationBuffer.StableTypeElement>(eventListenerEntity0);
 
-                        _ = listenerDeclaredEventTypeBuffer0.Add(EventSetup.ListenerDeclaredEventTypeBufferElement.Create<EventSingle>());
+                        _ = listenerDeclaredEventTypeBuffer0.Add(EventListener.EventDeclarationBuffer.StableTypeElement.Create<EventSingle>());
                     }
 
                     // Listener 1
                     {
                         // Buffer Event only
-                        DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeBuffer1 = commandBuffer.SetBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement>(eventListenerEntity1);
+                        DynamicBuffer<EventListener.EventDeclarationBuffer.StableTypeElement> listenerDeclaredEventTypeBuffer1 = commandBuffer.SetBuffer<EventListener.EventDeclarationBuffer.StableTypeElement>(eventListenerEntity1);
 
-                        _ = listenerDeclaredEventTypeBuffer1.Add(EventSetup.ListenerDeclaredEventTypeBufferElement.Create<EventBufferElement>());
+                        _ = listenerDeclaredEventTypeBuffer1.Add(EventListener.EventDeclarationBuffer.StableTypeElement.Create<EventBufferElement>());
                     }
 
                     // Listener 2
                     {
                         // Single Event only
-                        DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> listenerDeclaredEventTypeBuffer2 = commandBuffer.SetBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement>(eventListenerEntity2);
+                        DynamicBuffer<EventListener.EventDeclarationBuffer.StableTypeElement> listenerDeclaredEventTypeBuffer2 = commandBuffer.SetBuffer<EventListener.EventDeclarationBuffer.StableTypeElement>(eventListenerEntity2);
 
-                        _ = listenerDeclaredEventTypeBuffer2.Add(EventSetup.ListenerDeclaredEventTypeBufferElement.Create<EventSingle>());
+                        _ = listenerDeclaredEventTypeBuffer2.Add(EventListener.EventDeclarationBuffer.StableTypeElement.Create<EventSingle>());
                     }
                 }
             }
@@ -278,7 +278,7 @@ namespace EvilOctane.Entities.Tests
             commandBuffer.Playback(entityManager);
         }
 
-        private static void AssertCorrectEventsGetReceivedInOrder(NativeArray<Entity> eventFirerEntities, NativeArray<UnsafeList<Entity>> eventEntityListPerEventFirer, DynamicBuffer<EventReceiveBuffer.Element> eventReceiveBuffer, int eventIndexOffset, int eventCount)
+        private static void AssertCorrectEventsGetReceivedInOrder(NativeArray<Entity> eventFirerEntities, NativeArray<UnsafeList<Entity>> eventEntityListPerEventFirer, DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer, int eventIndexOffset, int eventCount)
         {
             Assert.AreEqual(eventCount * eventFirerEntities.Length, eventReceiveBuffer.Length, "Wrong number of events received");
 
@@ -289,8 +289,8 @@ namespace EvilOctane.Entities.Tests
 
             for (; eventIndex < eventReceiveBuffer.Length; ++eventIndex)
             {
-                EventReceiveBuffer.Element firstReceivedEvent = eventReceiveBuffer[eventIndex];
-                EventReceiveBuffer.Element previousReceivedEvent = firstReceivedEvent;
+                EventListener.EventReceiveBuffer.Element firstReceivedEvent = eventReceiveBuffer[eventIndex];
+                EventListener.EventReceiveBuffer.Element previousReceivedEvent = firstReceivedEvent;
 
                 // Find Firer
                 int eventFirerIndex = eventFirerEntities.IndexOf(firstReceivedEvent.EventFirerEntity);
@@ -301,7 +301,7 @@ namespace EvilOctane.Entities.Tests
 
                 for (int eventFirerEventIndex = 0; eventIndex < eventReceiveBuffer.Length && eventFirerEventIndex < eventFirerEventView.Length; ++eventFirerEventIndex)
                 {
-                    EventReceiveBuffer.Element receivedEvent = eventReceiveBuffer[eventIndex];
+                    EventListener.EventReceiveBuffer.Element receivedEvent = eventReceiveBuffer[eventIndex];
                     Assert.GreaterOrEqual(receivedEvent.EventEntity.Index, previousReceivedEvent.EventEntity.Index, "Event received out of order");
 
                     if (receivedEvent.EventFirerEntity != firstReceivedEvent.EventFirerEntity)
@@ -465,19 +465,19 @@ namespace EvilOctane.Entities.Tests
 
                 // Listener 0
                 {
-                    DynamicBuffer<EventReceiveBuffer.Element> eventReceiveBuffer0 = entityManager.GetBuffer<EventReceiveBuffer.Element>(eventListenerEntity0);
+                    DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer0 = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity0);
                     AssertCorrectEventsGetReceivedInOrder(eventFirerEntities, eventEntityListPerEventFirer, eventReceiveBuffer0, 0, eventCount * 2);
                 }
 
                 // Listener 1
                 {
-                    DynamicBuffer<EventReceiveBuffer.Element> eventReceiveBuffer1 = entityManager.GetBuffer<EventReceiveBuffer.Element>(eventListenerEntity1);
+                    DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer1 = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity1);
                     AssertCorrectEventsGetReceivedInOrder(eventFirerEntities, eventEntityListPerEventFirer, eventReceiveBuffer1, eventCount * 2, eventCount);
                 }
 
                 // Listener 2
                 {
-                    DynamicBuffer<EventReceiveBuffer.Element> eventReceiveBuffer2 = entityManager.GetBuffer<EventReceiveBuffer.Element>(eventListenerEntity2);
+                    DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer2 = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity2);
                     AssertCorrectEventsGetReceivedInOrder(eventFirerEntities, eventEntityListPerEventFirer, eventReceiveBuffer2, 0, eventCount * 3);
                 }
             }

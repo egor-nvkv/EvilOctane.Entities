@@ -16,7 +16,7 @@ namespace EvilOctane.Entities.Internal
         public EntityTypeHandle EntityTypeHandle;
 
         [ReadOnly]
-        public BufferTypeHandle<EventSetup.ListenerDeclaredEventTypeBufferElement> SetupDeclaredEventTypeBufferTypeHandle;
+        public BufferTypeHandle<EventListener.EventDeclarationBuffer.StableTypeElement> EventStableTypeBufferTypeHandle;
 
         public AllocatorManager.AllocatorHandle TempAllocator;
         public EntityCommandBuffer.ParallelWriter CommandBuffer;
@@ -28,47 +28,49 @@ namespace EvilOctane.Entities.Internal
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
             // Remove setup component
-            CommandBuffer.RemoveComponent<EventSetup.ListenerDeclaredEventTypeBufferElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
+            CommandBuffer.RemoveComponent<EventListener.EventDeclarationBuffer.StableTypeElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
 
             // Add runtime components
-
-            ComponentTypeSet eventListenerComponentTypeSet = EventSystem.GetEventListenerComponentTypeSet();
-            CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, eventListenerComponentTypeSet);
+            ComponentTypeSet componentTypeSet = EventSystem.GetEventListenerComponentTypeSet();
+            CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
 
             // Setup runtime components
 
-            BufferAccessor<EventSetup.ListenerDeclaredEventTypeBufferElement> setupDeclaredEventTypeBufferAccessor = chunk.GetBufferAccessorRO(ref SetupDeclaredEventTypeBufferTypeHandle);
+            BufferAccessor<EventListener.EventDeclarationBuffer.StableTypeElement> eventStableTypeBufferAccessor = chunk.GetBufferAccessorRO(ref EventStableTypeBufferTypeHandle);
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
                 Entity entity = entityPtr[entityIndex];
-                DynamicBuffer<EventSetup.ListenerDeclaredEventTypeBufferElement> setupDeclaredEventTypeBuffer = setupDeclaredEventTypeBufferAccessor[entityIndex];
+                DynamicBuffer<EventListener.EventDeclarationBuffer.StableTypeElement> eventStableTypeBuffer = eventStableTypeBufferAccessor[entityIndex];
 
-                SetupEventListener(unfilteredChunkIndex, entity, setupDeclaredEventTypeBuffer.AsSpanRO());
+                SetupEventListener(
+                    unfilteredChunkIndex,
+                    entity,
+                    eventStableTypeBuffer.AsSpanRO());
             }
         }
 
         private void SetupEventListener(
             int sortKey,
             Entity entity,
-            UnsafeSpan<EventSetup.ListenerDeclaredEventTypeBufferElement> setupDeclaredEventTypeSpanRO)
+            UnsafeSpan<EventListener.EventDeclarationBuffer.StableTypeElement> eventStableTypeSpanRO)
         {
-            DynamicBuffer<EventSettings.ListenerDeclaredEventTypeBufferElement> declaredEventTypeBufferTypeHandle = CommandBuffer.SetBuffer<EventSettings.ListenerDeclaredEventTypeBufferElement>(sortKey, entity);
-            declaredEventTypeBufferTypeHandle.EnsureCapacityTrashOldData(setupDeclaredEventTypeSpanRO.Length);
+            DynamicBuffer<EventListener.EventDeclarationBuffer.TypeElement> eventTypeBuffer = CommandBuffer.SetBuffer<EventListener.EventDeclarationBuffer.TypeElement>(sortKey, entity);
+            eventTypeBuffer.EnsureCapacityTrashOldData(eventStableTypeSpanRO.Length);
 
-            for (int eventIndex = 0; eventIndex != setupDeclaredEventTypeSpanRO.Length; ++eventIndex)
+            foreach (EventListener.EventDeclarationBuffer.StableTypeElement eventStableType in eventStableTypeSpanRO)
             {
-                EventSetup.ListenerDeclaredEventTypeBufferElement setupDeclaredEventType = setupDeclaredEventTypeSpanRO[eventIndex];
+                bool typeIndexFound = TypeManager.TryGetTypeIndexFromStableTypeHash(eventStableType.EventStableTypeHash, out TypeIndex eventTypeIndex);
 
-                if (!TypeManager.TryGetTypeIndexFromStableTypeHash(setupDeclaredEventType.EventStableTypeHash, out TypeIndex eventTypeIndex))
+                if (Hint.Unlikely(!typeIndexFound))
                 {
-                    // Event Type Index not found
+                    // Type Index not found
                     continue;
                 }
 
                 // Register Event Type
 
-                bool alreadyRegistered = declaredEventTypeBufferTypeHandle.AsSpanRO().Reinterpret<TypeIndex>().Contains(eventTypeIndex);
+                bool alreadyRegistered = eventTypeBuffer.AsSpanRO().Reinterpret<TypeIndex>().Contains(eventTypeIndex);
 
                 if (Hint.Unlikely(alreadyRegistered))
                 {
@@ -78,7 +80,7 @@ namespace EvilOctane.Entities.Internal
 
                 // Register
 
-                _ = declaredEventTypeBufferTypeHandle.AddNoResize(new EventSettings.ListenerDeclaredEventTypeBufferElement()
+                _ = eventTypeBuffer.AddNoResize(new EventListener.EventDeclarationBuffer.TypeElement()
                 {
                     EventTypeIndex = eventTypeIndex
                 });

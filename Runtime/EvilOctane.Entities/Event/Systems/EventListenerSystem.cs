@@ -4,7 +4,7 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.Jobs;
 
-[assembly: RegisterGenericJobType(typeof(BufferClearJobChunk<EventReceiveBuffer.Element>))]
+[assembly: RegisterGenericJobType(typeof(BufferClearJobChunk<EventListener.EventReceiveBuffer.Element>))]
 
 namespace EvilOctane.Entities
 {
@@ -12,25 +12,25 @@ namespace EvilOctane.Entities
     [UpdateInGroup(typeof(InitializationSystemGroup), OrderFirst = true)]
     public partial struct EventListenerSystem : ISystem
     {
-        private EntityQuery eventListenerSetupQuery;
-        private EntityQuery receiveBufferClearQuery;
+        private EntityQuery setupQuery;
+        private EntityQuery clearReceiveBufferQuery;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            eventListenerSetupQuery = SystemAPI.QueryBuilder()
+            setupQuery = SystemAPI.QueryBuilder()
                 .WithPresent<
-                    EventSetup.ListenerDeclaredEventTypeBufferElement>()
+                    EventListener.EventDeclarationBuffer.StableTypeElement>()
                 .WithAbsent<
-                    EventSettings.ListenerDeclaredEventTypeBufferElement>()
+                    EventListener.EventDeclarationBuffer.TypeElement>()
                 .Build();
 
-            receiveBufferClearQuery = SystemAPI.QueryBuilder()
+            clearReceiveBufferQuery = SystemAPI.QueryBuilder()
                 .WithPresentRW<
-                    EventReceiveBuffer.Element>()
+                    EventListener.EventReceiveBuffer.Element>()
                 .Build();
 
-            receiveBufferClearQuery.SetChangedVersionFilter<EventReceiveBuffer.Element>();
+            clearReceiveBufferQuery.SetChangedVersionFilter<EventListener.EventReceiveBuffer.Element>();
         }
 
         [BurstCompile]
@@ -41,15 +41,15 @@ namespace EvilOctane.Entities
             JobHandle setupJobHandle = new EventListenerSetupJob()
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
-                SetupDeclaredEventTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventSetup.ListenerDeclaredEventTypeBufferElement>(isReadOnly: true),
+                EventStableTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventListener.EventDeclarationBuffer.StableTypeElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator,
                 CommandBuffer = commandBuffer.AsParallelWriter()
-            }.ScheduleParallel(eventListenerSetupQuery, state.Dependency);
+            }.ScheduleParallel(setupQuery, state.Dependency);
 
-            JobHandle clearJobHandle = new BufferClearJobChunk<EventReceiveBuffer.Element>()
+            JobHandle clearJobHandle = new BufferClearJobChunk<EventListener.EventReceiveBuffer.Element>()
             {
-                BufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventReceiveBuffer.Element>()
-            }.ScheduleParallel(receiveBufferClearQuery, state.Dependency);
+                BufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventListener.EventReceiveBuffer.Element>()
+            }.ScheduleParallel(clearReceiveBufferQuery, state.Dependency);
 
             state.Dependency = JobHandle.CombineDependencies(setupJobHandle, clearJobHandle);
         }

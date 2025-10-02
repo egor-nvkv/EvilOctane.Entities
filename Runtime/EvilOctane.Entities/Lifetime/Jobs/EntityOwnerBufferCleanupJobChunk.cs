@@ -36,7 +36,7 @@ namespace EvilOctane.Entities
             if (Hint.Likely(!entitiesToDestroyList.IsEmpty))
             {
                 // Destroy
-                CommandBuffer.DestroyEntity(entitiesToDestroyList.AsSpan());
+                CommandBuffer.DestroyEntity(entitiesToDestroyList.Ptr, entitiesToDestroyList.Length);
             }
 
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);

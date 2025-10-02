@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.10.7] - 2025-10-02
+
+EventSystem fixes and refactor
+
 ## [0.10.6] - 2025-10-01
 
 EventSystem fixes and improvements
