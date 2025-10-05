@@ -46,12 +46,6 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool NeedsTrimming(DynamicBuffer<Storage> storage, int actualLength)
-        {
-            return storage.Length / 2 >= actualLength;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static EventListenerMapHeader* GetListenerMap(DynamicBuffer<Storage> storage, bool readOnly = false)
         {
             void* listenerMap = readOnly ? storage.GetUnsafeReadOnlyPtr() : storage.GetUnsafePtr();
@@ -61,9 +55,9 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static nint GetFirstListenerListOffset(EventListenerMapHeader* listenerMap)
+        public static nint GetFirstListenerListOffset(int listenerMapCount)
         {
-            nint mapSize = EventListenerMap.GetTotalAllocationSize(listenerMap->Count);
+            nint mapSize = EventListenerMap.GetTotalAllocationSize(listenerMapCount);
             return Align(mapSize, EventListenerList.Alignment);
         }
 
@@ -134,7 +128,7 @@ namespace EvilOctane.Entities.Internal
             nint requiredSize = GetRequiredAllocationSize(ref eventTypeListenerListMap, compact: compact, out nint firstListOffset);
             int requiredLength = AllocationSizeToStorageLength(requiredSize);
 
-            if (compact && NeedsTrimming(storage, requiredLength))
+            if (compact)
             {
                 // Trim
 
@@ -143,6 +137,7 @@ namespace EvilOctane.Entities.Internal
                 // TODO 251005: this sometimes crashes immediately or during world dispose
                 //            : original TrimExcess crashes as well
                 //            : probably has to do with element pointer getting corrupted before Free
+                //storage.TrimExcess();
                 //storage.TrimExcessTrashOldData();
             }
             else
@@ -243,7 +238,7 @@ namespace EvilOctane.Entities.Internal
                 return true;
             }
 
-            nint firstListOffset = GetFirstListenerListOffset(listenerMap);
+            nint firstListOffset = GetFirstListenerListOffset(listenerMap->Count);
             EventListenerListHeader* list = listOffset.GetList(listenerMap, firstListOffset);
 
             bool alreadySubscribed = EventListenerList.AsSpan(list).Contains(listenerEntity);
@@ -254,7 +249,7 @@ namespace EvilOctane.Entities.Internal
                 return true;
             }
 
-            bool isFull = list->Capacity == list->Length;
+            bool isFull = list->Length == list->Capacity;
 
             if (Hint.Unlikely(isFull))
             {
@@ -295,7 +290,7 @@ namespace EvilOctane.Entities.Internal
                 return;
             }
 
-            nint firstListOffset = GetFirstListenerListOffset(listenerMap);
+            nint firstListOffset = GetFirstListenerListOffset(listenerMap->Count);
             EventListenerListHeader* list = listOffset.GetList(listenerMap, firstListOffset);
 
             int index = EventListenerList.AsSpan(list).IndexOf(listenerEntity);
@@ -374,9 +369,7 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static nint GetRequiredAllocationSize(ref UnsafeHashMap<TypeIndex, int> eventTypeListenerCapacityMap, out nint firstListOffset)
         {
-            nint mapSize = EventListenerMap.GetTotalAllocationSize(eventTypeListenerCapacityMap.Count);
-            firstListOffset = Align(mapSize, EventListenerList.Alignment);
-
+            firstListOffset = GetFirstListenerListOffset(eventTypeListenerCapacityMap.Count);
             nint totalSize = firstListOffset;
 
             foreach (KVPair<TypeIndex, int> kvPair in eventTypeListenerCapacityMap)
@@ -393,9 +386,7 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static nint GetRequiredAllocationSize(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, bool compact, out nint firstListOffset)
         {
-            nint mapSize = EventListenerMap.GetTotalAllocationSize(eventTypeListenerListMap.Count);
-            firstListOffset = Align(mapSize, EventListenerList.Alignment);
-
+            firstListOffset = GetFirstListenerListOffset(eventTypeListenerListMap.Count);
             nint totalSize = firstListOffset;
 
             foreach (KVPair<TypeIndex, EventListenerListCapacityPair> kvPair in eventTypeListenerListMap)
@@ -416,7 +407,7 @@ namespace EvilOctane.Entities.Internal
         private static void CopyTo(DynamicBuffer<Storage> storage, BufferLookup<EventListener.EventDeclarationBuffer.TypeElement> entityLookup, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator, bool skipDestroyed)
         {
             EventListenerMapHeader* listenerMap = GetListenerMap(storage, readOnly: true);
-            nint firstListOffset = GetFirstListenerListOffset(listenerMap);
+            nint firstListOffset = GetFirstListenerListOffset(listenerMap->Count);
 
             HashMapHelperRef<TypeIndex> mapHelper = eventTypeListenerListMap.GetHelperRef();
             mapHelper.EnsureCapacity(listenerMap->Count);
@@ -482,7 +473,10 @@ namespace EvilOctane.Entities.Internal
 
                         if (Hint.Unlikely(!exists))
                         {
-                            // TODO: profile counter
+#if ENABLE_PROFILER
+                            // Phantom Listener
+                            ++EventSystemProfiler.PhantomListenersCounter.Data.Value;
+#endif
 
                             // Destroyed
                             continue;

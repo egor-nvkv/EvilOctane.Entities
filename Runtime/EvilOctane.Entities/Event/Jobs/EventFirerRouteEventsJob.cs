@@ -79,7 +79,7 @@ namespace EvilOctane.Entities.Internal
             UnsafeSpan<EventFirer.EventBuffer.EntityElement> eventSpanRO,
             UnsafeSpan<EventFirer.EventBuffer.TypeElement> eventTypeSpanRO)
         {
-            nint firstListOffset = EventSubscriptionRegistryFunctions.GetFirstListenerListOffset(listenerMap);
+            nint firstListOffset = EventSubscriptionRegistryFunctions.GetFirstListenerListOffset(listenerMap->Count);
 
             for (int eventIndex = 0; eventIndex != eventSpanRO.Length; ++eventIndex)
             {

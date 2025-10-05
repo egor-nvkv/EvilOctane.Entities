@@ -73,11 +73,12 @@ namespace EvilOctane.Entities.Tests
             return entityArray;
         }
 
-        private static NativeArray<Entity> CreateEntities<T>(EntityManager entityManager, int entityCount, Allocator allocator = Allocator.Temp)
+        private static NativeArray<Entity> CreateEntities<T0, T1>(EntityManager entityManager, int entityCount, Allocator allocator = Allocator.Temp)
         {
-            EntityArchetype entityArchetype = entityManager.CreateArchetype(stackalloc ComponentType[1]
+            EntityArchetype entityArchetype = entityManager.CreateArchetype(stackalloc ComponentType[2]
             {
-                ComponentType.ReadWrite<T>()
+                ComponentType.ReadWrite<T0>(),
+                ComponentType.ReadWrite<T1>()
             });
 
             NativeArray<Entity> entityArray = new(entityCount, allocator, NativeArrayOptions.UninitializedMemory);
@@ -123,7 +124,7 @@ namespace EvilOctane.Entities.Tests
             else
             {
                 // Create Listeners
-                eventFirerEntities = CreateEntities<EventFirer.EventDeclarationBuffer.StableTypeElement>(entityManager, eventFirerCount, allocator);
+                eventFirerEntities = CreateEntities<EventFirer.EventDeclarationBuffer.StableTypeElement, ChunkFiller>(entityManager, eventFirerCount, allocator);
 
                 // Set Up Firers
 
@@ -146,7 +147,7 @@ namespace EvilOctane.Entities.Tests
                 int totalEventListenerCount = eventListenerCount * 3;
 
                 // Create Listeners
-                eventListenerEntities = CreateEntities<EventListener.EventDeclarationBuffer.StableTypeElement>(entityManager, totalEventListenerCount, allocator);
+                eventListenerEntities = CreateEntities<EventListener.EventDeclarationBuffer.StableTypeElement, ChunkFiller>(entityManager, totalEventListenerCount, allocator);
 
                 // Set Up Listeners
 
@@ -288,13 +289,6 @@ namespace EvilOctane.Entities.Tests
                 EventSystem.CompactEventSubscriptionRegistry(commandBuffer, eventFirerEntity);
             }
 
-            commandBuffer.Playback(entityManager);
-        }
-
-        private static void CleanupEventFirers(EntityManager entityManager, NativeArray<Entity> eventFirerEntities)
-        {
-            EntityCommandBuffer commandBuffer = new(entityManager.World.UpdateAllocator.ToAllocator);
-            commandBuffer.RemoveComponent<EventFirer.IsAliveTag>(eventFirerEntities);
             commandBuffer.Playback(entityManager);
         }
 
@@ -479,9 +473,6 @@ namespace EvilOctane.Entities.Tests
                     }
                 }
             }
-
-            // Cleanup
-            CleanupEventFirers(entityManager, eventFirerEntities);
         }
 
         [Test]
@@ -516,9 +507,6 @@ namespace EvilOctane.Entities.Tests
                     Assert.IsFalse(entityManager.Exists(eventEntity), "Event entity was not destroyed");
                 }
             }
-
-            // Cleanup
-            CleanupEventFirers(entityManager, eventFirerEntities);
         }
 
         [Test]
@@ -575,9 +563,6 @@ namespace EvilOctane.Entities.Tests
                     AssertCorrectEventsGetReceivedInOrder(eventFirerEntities, eventEntityListPerEventFirer, eventReceiveBuffer2, 0, eventCount * 3);
                 }
             }
-
-            // Cleanup
-            CleanupEventFirers(entityManager, eventFirerEntities);
         }
 
         [Test]
@@ -637,9 +622,6 @@ namespace EvilOctane.Entities.Tests
                     Assert.IsTrue(eventReceiveBuffer2.IsEmpty);
                 }
             }
-
-            // Cleanup
-            CleanupEventFirers(entityManager, eventFirerEntities);
         }
 
         [Test]
@@ -698,8 +680,8 @@ namespace EvilOctane.Entities.Tests
 
                 // Copy to temp map
 
-                UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap = new(16, world.UpdateAllocator.Handle);
-                EventSubscriptionRegistryFunctions.CopyTo(registryStorage, ref eventTypeListenerListMap, world.UpdateAllocator.Handle);
+                UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap = new(16, Allocator.Temp);
+                EventSubscriptionRegistryFunctions.CopyTo(registryStorage, ref eventTypeListenerListMap, Allocator.Temp);
 
                 Assert.IsFalse(eventTypeListenerListMap.IsEmpty, "Registry keys were cleared");
 
@@ -709,9 +691,6 @@ namespace EvilOctane.Entities.Tests
                     Assert.LessOrEqual(listenerList.RequiredCapacity, EventSubscriptionRegistryFunctions.ListenerListDefaultInitialCapacity, "Listener list not trimmed");
                 }
             }
-
-            // Cleanup
-            CleanupEventFirers(entityManager, eventFirerEntities);
         }
     }
 
