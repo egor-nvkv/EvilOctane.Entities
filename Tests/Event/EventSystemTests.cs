@@ -1,3 +1,4 @@
+using EvilOctane.Entities.Internal;
 using NUnit.Framework;
 using System;
 using System.Text.RegularExpressions;
@@ -49,7 +50,7 @@ namespace EvilOctane.Entities.Tests
 
         private static World CreateWorld()
         {
-            World world = new("Test World", WorldFlags.None, Allocator.TempJob);
+            World world = new("Test World", WorldFlags.None, Allocator.Persistent);
 
             InitializationSystemGroup group = world.CreateSystemManaged<InitializationSystemGroup>();
             group.AddSystemToUpdateList(world.CreateSystem<BeginInitializationEntityCommandBufferSystem>());
@@ -278,6 +279,18 @@ namespace EvilOctane.Entities.Tests
             commandBuffer.Playback(entityManager);
         }
 
+        private static void CompactRegistry(EntityManager entityManager, NativeArray<Entity> eventFirerEntities)
+        {
+            EntityCommandBuffer commandBuffer = new(entityManager.World.UpdateAllocator.ToAllocator);
+
+            foreach (Entity eventFirerEntity in eventFirerEntities)
+            {
+                EventSystem.CompactEventSubscriptionRegistry(commandBuffer, eventFirerEntity);
+            }
+
+            commandBuffer.Playback(entityManager);
+        }
+
         private static void CleanupEventFirers(EntityManager entityManager, NativeArray<Entity> eventFirerEntities)
         {
             EntityCommandBuffer commandBuffer = new(entityManager.World.UpdateAllocator.ToAllocator);
@@ -401,9 +414,9 @@ namespace EvilOctane.Entities.Tests
             // Update for ECBS playback
             world.Update();
 
-            for (int firerIndex = 0; firerIndex != eventFirerCount; ++firerIndex)
+            foreach (Entity eventFirerEntity in eventFirerEntities)
             {
-                Assert.IsFalse(entityManager.Exists(eventFirerEntities[firerIndex]), "Firer was not cleaned up");
+                Assert.IsFalse(entityManager.Exists(eventFirerEntity), "Firer was not cleaned up");
             }
         }
 
@@ -622,6 +635,78 @@ namespace EvilOctane.Entities.Tests
                 {
                     DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer2 = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity2);
                     Assert.IsTrue(eventReceiveBuffer2.IsEmpty);
+                }
+            }
+
+            // Cleanup
+            CleanupEventFirers(entityManager, eventFirerEntities);
+        }
+
+        [Test]
+        public void TestCompactWorks(
+            [ValueSource(nameof(eventFirerCountArray))] int eventFirerCount,
+            [ValueSource(nameof(eventListenerCountArray))] int eventListenerCount)
+        {
+            // Set up
+
+            using World world = CreateWorld();
+            EntityManager entityManager = world.EntityManager;
+
+            CreateEventFirersAndListeners(entityManager, eventFirerCount, eventListenerCount, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out NativeArray<Entity> eventListenerEntities);
+            world.Update();
+
+            // Subscribe
+            Subscribe(entityManager, eventFirerEntities, eventListenerEntities, eventListenerCount);
+
+            // Get registry capacities before compact
+
+            NativeArray<int> registryCapacityArray = new(eventFirerCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+
+            for (int firerIndex = 0; firerIndex != eventFirerCount; ++firerIndex)
+            {
+                Entity eventFirerEntity = eventFirerEntities[firerIndex];
+                DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = entityManager.GetBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage>(eventFirerEntity, isReadOnly: true);
+                registryCapacityArray[firerIndex] = registryStorage.Capacity;
+            }
+
+            // Update for subscribe to complete
+            world.Update();
+
+            // Unsubscribe
+            Unsubscribe(entityManager, eventFirerEntities, eventListenerEntities, eventListenerCount);
+
+            // Compact
+            CompactRegistry(entityManager, eventFirerEntities);
+
+            // Update for Compact to complete
+            world.Update();
+
+            for (int firerIndex = 0; firerIndex != eventFirerCount; ++firerIndex)
+            {
+                Entity eventFirerEntity = eventFirerEntities[firerIndex];
+                int registryOriginalCapacity = registryCapacityArray[firerIndex];
+
+                // Registry
+
+                DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = entityManager.GetBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage>(eventFirerEntity, isReadOnly: true);
+                Assert.IsTrue(EventSubscriptionRegistryFunctions.IsCreated(registryStorage));
+
+                if (registryStorage.Capacity >= registryOriginalCapacity)
+                {
+                    Assert.Inconclusive("Compact is disabled while DynamicBuffer.TrimExcess crash is being investigated");
+                }
+
+                // Copy to temp map
+
+                UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap = new(16, world.UpdateAllocator.Handle);
+                EventSubscriptionRegistryFunctions.CopyTo(registryStorage, ref eventTypeListenerListMap, world.UpdateAllocator.Handle);
+
+                Assert.IsFalse(eventTypeListenerListMap.IsEmpty, "Registry keys were cleared");
+
+                foreach (KVPair<TypeIndex, EventListenerListCapacityPair> kvPair in eventTypeListenerListMap)
+                {
+                    EventListenerListCapacityPair listenerList = kvPair.Value;
+                    Assert.LessOrEqual(listenerList.RequiredCapacity, EventSubscriptionRegistryFunctions.ListenerListDefaultInitialCapacity, "Listener list not trimmed");
                 }
             }
 

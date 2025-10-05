@@ -2,52 +2,41 @@ using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using Unity.Mathematics;
 
 namespace EvilOctane.Entities.Internal
 {
     public unsafe struct EventListenerListCapacityPair
     {
-        public Entity* ListenerListPtr;
-        public int ListenerListLength;
-        public int ListenerListCapacity;
+        public Entity* Ptr;
+        public int Length;
+        public int Capacity;
 
-        /// <summary>
-        /// <see cref="EventFirer.EventDeclarationBuffer.StableTypeElement.ListenerListInitialCapacity"/>
-        /// </summary>
-        public int ListenerListStartingCapacity;
+        public int RequiredCapacity;
 
         public readonly bool IsCreated
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ListenerListPtr != null;
-        }
-
-        public readonly int ListenerListRequiredCapacity
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => math.max(ListenerListLength, ListenerListStartingCapacity);
+            get => Ptr != null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EventListenerListCapacityPair(int capacity, AllocatorManager.AllocatorHandle allocator)
+        public EventListenerListCapacityPair(int capacity, int requiredCapacity, AllocatorManager.AllocatorHandle allocator)
         {
-            ListenerListPtr = MemoryExposed.AllocateList<Entity>(capacity, allocator, out ListenerListCapacity);
-            ListenerListLength = 0;
-
-            ListenerListStartingCapacity = 0;
+            Ptr = MemoryExposed.AllocateList<Entity>(capacity, allocator, out Capacity);
+            Length = 0;
+            RequiredCapacity = requiredCapacity;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly UnsafeSpan<Entity> AsSpan()
         {
-            return new UnsafeSpan<Entity>(ListenerListPtr, ListenerListLength);
+            return new UnsafeSpan<Entity>(Ptr, Length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
-            ListenerListLength = 0;
+            Length = 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -55,49 +44,49 @@ namespace EvilOctane.Entities.Internal
         {
             UntypedUnsafeListMutable mutable = new()
             {
-                Ptr = ListenerListPtr,
-                m_length = ListenerListLength,
-                m_capacity = ListenerListCapacity,
+                Ptr = Ptr,
+                m_length = Length,
+                m_capacity = Capacity,
                 Allocator = allocator
             };
 
             MemoryExposed.EnsureListCapacity<Entity>(ref mutable, capacity, keepOldData: keepOldData);
 
-            ListenerListPtr = (Entity*)mutable.Ptr;
-            ListenerListCapacity = mutable.m_capacity;
+            Ptr = (Entity*)mutable.Ptr;
+            Capacity = mutable.m_capacity;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnsureSlack(int slack, AllocatorManager.AllocatorHandle allocator)
         {
-            EnsureCapacity(ListenerListLength + slack, allocator);
+            EnsureCapacity(Length + slack, allocator);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddNoResize(Entity listenerEntity)
         {
-            CollectionHelper2.CheckAddNoResizeHasEnoughCapacity(ListenerListLength, ListenerListCapacity, 1);
-            ListenerListPtr[ListenerListLength++] = listenerEntity;
+            CollectionHelper2.CheckAddNoResizeHasEnoughCapacity(Length, Capacity, 1);
+            Ptr[Length++] = listenerEntity;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddRangeNoResize(UnsafeSpan<Entity> span)
         {
-            CollectionHelper2.CheckAddNoResizeHasEnoughCapacity(ListenerListLength, ListenerListCapacity, span.Length);
+            CollectionHelper2.CheckAddNoResizeHasEnoughCapacity(Length, Capacity, span.Length);
 
-            int oldLength = ListenerListLength;
-            ListenerListLength += span.Length;
+            int oldLength = Length;
+            Length += span.Length;
 
-            new UnsafeSpan<Entity>(ListenerListPtr + oldLength, span.Length).CopyFrom(span);
+            new UnsafeSpan<Entity>(Ptr + oldLength, span.Length).CopyFrom(span);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAtSwapBack(int index)
         {
-            CollectionHelper2.CheckContainerIndexInRange(index, ListenerListLength);
+            CollectionHelper2.CheckContainerIndexInRange(index, Length);
 
-            ListenerListPtr[index] = ListenerListPtr[ListenerListLength - 1];
-            --ListenerListLength;
+            Ptr[index] = Ptr[Length - 1];
+            --Length;
         }
     }
 }

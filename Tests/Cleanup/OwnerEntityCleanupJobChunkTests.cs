@@ -15,7 +15,7 @@ namespace EvilOctane.Entities.Tests
         [Test]
         public void DoTest()
         {
-            using World world = new("Test World", WorldFlags.None, Allocator.TempJob);
+            using World world = new("Test World", WorldFlags.None, Allocator.Persistent);
 
             SystemHandle systemHandle = world.CreateSystem<OwnerEntityCleanupSystem>();
             world.CreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(systemHandle);

@@ -23,6 +23,28 @@ namespace EvilOctane.Entities
             commandBuffer.AddComponent(eventFirerEntity, componentTypeSet);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CompactEventSubscriptionRegistry(EntityCommandBuffer commandBuffer, Entity eventFirerEntity)
+        {
+            commandBuffer.AppendToBuffer(eventFirerEntity, new EventFirer.EventSubscriptionRegistry.CommandBufferElement()
+            {
+                ListenerEntity = Entity.Null,
+                EventTypeIndex = TypeIndex.Null,
+                Command = EventFirer.EventSubscriptionRegistry.Command.Compact
+            });
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CompactEventSubscriptionRegistry(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity)
+        {
+            commandBuffer.AppendToBuffer(sortKey, eventFirerEntity, new EventFirer.EventSubscriptionRegistry.CommandBufferElement()
+            {
+                ListenerEntity = Entity.Null,
+                EventTypeIndex = TypeIndex.Null,
+                Command = EventFirer.EventSubscriptionRegistry.Command.Compact
+            });
+        }
+
         // Subscribe
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

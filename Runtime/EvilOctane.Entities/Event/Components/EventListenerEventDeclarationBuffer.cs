@@ -3,7 +3,7 @@ using Unity.Entities;
 
 namespace EvilOctane.Entities
 {
-    public struct EventListener
+    public partial struct EventListener
     {
         public struct EventDeclarationBuffer
         {
@@ -31,16 +31,6 @@ namespace EvilOctane.Entities
                 {
                     return TypeManager.StableTypeHashToDebugTypeName(EventStableTypeHash).ToString();
                 }
-            }
-        }
-
-        public struct EventReceiveBuffer
-        {
-            [InternalBufferCapacity(0)]
-            public struct Element : IBufferElementData
-            {
-                public Entity EventFirerEntity;
-                public Entity EventEntity;
             }
         }
     }

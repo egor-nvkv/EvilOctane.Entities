@@ -16,7 +16,7 @@ namespace EvilOctane.Entities.Tests
         [Test]
         public void DoTest([Values(true, false)] bool runParallel)
         {
-            using World world = new("Test World", WorldFlags.None, Allocator.TempJob);
+            using World world = new("Test World", WorldFlags.None, Allocator.Persistent);
 
             SystemHandle systemHandle = world.CreateSystem<EntityOwnerBufferCleanupSystem>();
             world.Unmanaged.GetUnsafeSystemRef<EntityOwnerBufferCleanupSystem>(systemHandle).RunParallel = runParallel;

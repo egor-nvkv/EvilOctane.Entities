@@ -27,7 +27,7 @@ namespace EvilOctane.Entities.Internal
             get => math.max(EventListenerMap.Alignment, EventListenerList.Alignment);
         }
 
-        public static int DefaultListenerListStartingCapacity
+        public static int ListenerListDefaultInitialCapacity
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
@@ -79,9 +79,10 @@ namespace EvilOctane.Entities.Internal
 
             // Calculate size
 
-            nint requiredSize = GetRequiredAllocationSize(ref eventTypeListenerCapacityMap, out nint listsOffset);
-            storage.ResizeUninitializedTrashOldData(AllocationSizeToStorageLength(requiredSize));
+            nint requiredSize = GetRequiredAllocationSize(ref eventTypeListenerCapacityMap, out nint firstListOffset);
+            int requiredLength = AllocationSizeToStorageLength(requiredSize);
 
+            storage.ResizeUninitializedTrashOldData(requiredLength);
             byte* storagePtr = (byte*)storage.GetUnsafePtr();
 
             // Create Listener map
@@ -91,7 +92,7 @@ namespace EvilOctane.Entities.Internal
 
             // Create Listener lists
 
-            nint offset = listsOffset;
+            nint offset = firstListOffset;
 
             foreach (KVPair<TypeIndex, int> kvPair in eventTypeListenerCapacityMap)
             {
@@ -107,106 +108,42 @@ namespace EvilOctane.Entities.Internal
 
                 // Register list
 
-                nint listOffset = offset - listsOffset;
+                nint listOffset = offset - firstListOffset;
                 EventListenerMap.AddUncheckedNoResize(listenerMap, kvPair.Key, listOffset);
 
                 offset += EventListenerList.GetTotalAllocationSize(listenerListCapacity);
             }
         }
 
-        public static void CopyTo(DynamicBuffer<Storage> storage, BufferLookup<EventListener.EventDeclarationBuffer.TypeElement> entityLookup, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator)
+        public static void CopyTo(DynamicBuffer<Storage> storage, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator)
         {
             Assert.IsTrue(IsCreated(storage));
-
-            EventListenerMapHeader* listenerMap = GetListenerMap(storage, readOnly: true);
-
-            HashMapHelperRef<TypeIndex> mapHelper = eventTypeListenerListMap.GetHelperRef();
-            mapHelper.EnsureCapacity(listenerMap->Count);
-
-            EventListenerMap.Enumerator enumerator = EventListenerMap.GetEnumerator(listenerMap);
-            nint firstListOffset = GetFirstListenerListOffset(listenerMap);
-
-            while (enumerator.MoveNext())
-            {
-                InlineHashMapKVPair<TypeIndex, EventListenerListOffset> kvPair = enumerator.Current;
-                EventListenerListHeader* list = kvPair.ValueRefRW.GetList(listenerMap, firstListOffset);
-
-                ref EventListenerListCapacityPair listenerListCapacityPair = ref mapHelper.GetOrAddValueNoResize<EventListenerListCapacityPair>(kvPair.Key, out bool added);
-
-                // Keep original capacity
-                listenerListCapacityPair.ListenerListStartingCapacity = list->Capacity;
-
-                if (added)
-                {
-                    bool sourceListIsEmpty = list->Length == 0;
-
-                    if (sourceListIsEmpty)
-                    {
-                        // Empty
-                        listenerListCapacityPair.ListenerListPtr = null;
-                        listenerListCapacityPair.ListenerListLength = 0;
-                        listenerListCapacityPair.ListenerListCapacity = 0;
-                        continue;
-                    }
-                    else
-                    {
-                        // Allocate
-                        goto Allocate;
-                    }
-                }
-                else
-                {
-                    if (listenerListCapacityPair.IsCreated)
-                    {
-                        // Ensure capacity
-
-                        listenerListCapacityPair.Clear();
-                        listenerListCapacityPair.EnsureCapacity(list->Length, tempAllocator, keepOldData: false);
-                    }
-                    else
-                    {
-                        // Allocate
-                        goto Allocate;
-                    }
-                }
-
-            Copy:
-                foreach (Entity listenerEntity in EventListenerList.AsSpan(list))
-                {
-                    bool exists = entityLookup.EntityExists(listenerEntity);
-
-                    if (Hint.Unlikely(!exists))
-                    {
-                        // TODO: profile counter
-
-                        // Destroyed
-                        continue;
-                    }
-
-                    listenerListCapacityPair.AddNoResize(listenerEntity);
-                }
-
-                continue;
-
-            Allocate:
-                listenerListCapacityPair = new EventListenerListCapacityPair(list->Length, tempAllocator);
-                goto Copy;
-            }
+            CopyTo(storage, default, ref eventTypeListenerListMap, tempAllocator, skipDestroyed: false);
         }
 
-        public static void CopyFrom(DynamicBuffer<Storage> storage, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap)
+        public static void CopyToSkipDestroyed(DynamicBuffer<Storage> storage, BufferLookup<EventListener.EventDeclarationBuffer.TypeElement> entityLookup, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator)
+        {
+            Assert.IsTrue(IsCreated(storage));
+            CopyTo(storage, entityLookup, ref eventTypeListenerListMap, tempAllocator, skipDestroyed: true);
+        }
+
+        public static void CopyFrom(DynamicBuffer<Storage> storage, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, bool compact = false)
         {
             // Calculate size
 
-            nint requiredSize = GetRequiredAllocationSize(ref eventTypeListenerListMap, out nint listsOffset);
+            nint requiredSize = GetRequiredAllocationSize(ref eventTypeListenerListMap, compact: compact, out nint firstListOffset);
             int requiredLength = AllocationSizeToStorageLength(requiredSize);
 
-            if (NeedsTrimming(storage, requiredLength))
+            if (compact && NeedsTrimming(storage, requiredLength))
             {
                 // Trim
 
                 storage.SetLengthNoResize(requiredLength);
-                storage.TrimExcessTrashOldData();
+
+                // TODO 251005: this sometimes crashes immediately or during world dispose
+                //            : original TrimExcess crashes as well
+                //            : probably has to do with element pointer getting corrupted before Free
+                //storage.TrimExcessTrashOldData();
             }
             else
             {
@@ -223,7 +160,7 @@ namespace EvilOctane.Entities.Internal
 
             // Create Listener lists
 
-            nint offset = listsOffset;
+            nint offset = firstListOffset;
 
             foreach (KVPair<TypeIndex, EventListenerListCapacityPair> kvPair in eventTypeListenerListMap)
             {
@@ -235,19 +172,19 @@ namespace EvilOctane.Entities.Internal
                 offset = Align(offset, EventListenerList.Alignment);
                 EventListenerListHeader* list = (EventListenerListHeader*)(storagePtr + offset);
 
-                int requiredCapacity = kvPair.Value.ListenerListRequiredCapacity;
+                int requiredCapacity = GetListRequiredCapacity(kvPair.Value, compact: compact);
                 EventListenerList.Create(list, requiredCapacity);
 
                 // Copy list
 
-                if (listenerListCapacityPair.ListenerListLength != 0)
+                if (listenerListCapacityPair.Length != 0)
                 {
                     EventListenerList.AddRangeNoResize(list, listenerListCapacityPair.AsSpan());
                 }
 
                 // Register list
 
-                nint listOffset = offset - listsOffset;
+                nint listOffset = offset - firstListOffset;
                 EventListenerMap.AddUncheckedNoResize(listenerMap, kvPair.Key, listOffset);
 
                 offset += EventListenerList.GetTotalAllocationSize(requiredCapacity);
@@ -280,8 +217,8 @@ namespace EvilOctane.Entities.Internal
             else
             {
                 // Allocate
-                int capacity = listenerListCapacityPair.ListenerListStartingCapacity;
-                listenerListCapacityPair = new EventListenerListCapacityPair(capacity, tempAllocator);
+                int capacity = listenerListCapacityPair.RequiredCapacity;
+                listenerListCapacityPair = new EventListenerListCapacityPair(capacity, capacity, tempAllocator);
             }
 
             listenerListCapacityPair.AddNoResize(listenerEntity);
@@ -420,12 +357,27 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static nint GetRequiredAllocationSize(ref UnsafeHashMap<TypeIndex, int> eventTypeListenerCapacityMap, out nint listsOffset)
+        private static int GetListRequiredCapacity(EventListenerListCapacityPair pair, bool compact)
+        {
+            if (compact)
+            {
+                // Use actual length
+                return pair.Length;
+            }
+            else
+            {
+                // Use max capacity
+                return math.max(pair.Length, pair.RequiredCapacity);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static nint GetRequiredAllocationSize(ref UnsafeHashMap<TypeIndex, int> eventTypeListenerCapacityMap, out nint firstListOffset)
         {
             nint mapSize = EventListenerMap.GetTotalAllocationSize(eventTypeListenerCapacityMap.Count);
-            listsOffset = Align(mapSize, EventListenerList.Alignment);
+            firstListOffset = Align(mapSize, EventListenerList.Alignment);
 
-            nint totalSize = listsOffset;
+            nint totalSize = firstListOffset;
 
             foreach (KVPair<TypeIndex, int> kvPair in eventTypeListenerCapacityMap)
             {
@@ -439,17 +391,17 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static nint GetRequiredAllocationSize(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, out nint listsOffset)
+        private static nint GetRequiredAllocationSize(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, bool compact, out nint firstListOffset)
         {
             nint mapSize = EventListenerMap.GetTotalAllocationSize(eventTypeListenerListMap.Count);
-            listsOffset = Align(mapSize, EventListenerList.Alignment);
+            firstListOffset = Align(mapSize, EventListenerList.Alignment);
 
-            nint totalSize = listsOffset;
+            nint totalSize = firstListOffset;
 
             foreach (KVPair<TypeIndex, EventListenerListCapacityPair> kvPair in eventTypeListenerListMap)
             {
                 kvPair.AssumeIndexIsValid();
-                int requiredCapacity = kvPair.Value.ListenerListRequiredCapacity;
+                int requiredCapacity = GetListRequiredCapacity(kvPair.Value, compact: compact);
 
                 nint listOffset = Align(totalSize, EventListenerList.Alignment);
                 nint listSize = EventListenerList.GetTotalAllocationSize(requiredCapacity);
@@ -458,6 +410,99 @@ namespace EvilOctane.Entities.Internal
             }
 
             return totalSize;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void CopyTo(DynamicBuffer<Storage> storage, BufferLookup<EventListener.EventDeclarationBuffer.TypeElement> entityLookup, ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, AllocatorManager.AllocatorHandle tempAllocator, bool skipDestroyed)
+        {
+            EventListenerMapHeader* listenerMap = GetListenerMap(storage, readOnly: true);
+            nint firstListOffset = GetFirstListenerListOffset(listenerMap);
+
+            HashMapHelperRef<TypeIndex> mapHelper = eventTypeListenerListMap.GetHelperRef();
+            mapHelper.EnsureCapacity(listenerMap->Count);
+
+            EventListenerMap.Enumerator enumerator = EventListenerMap.GetEnumerator(listenerMap);
+
+            while (enumerator.MoveNext())
+            {
+                InlineHashMapKVPair<TypeIndex, EventListenerListOffset> kvPair = enumerator.Current;
+                EventListenerListHeader* list = kvPair.ValueRefRW.GetList(listenerMap, firstListOffset);
+
+                ref EventListenerListCapacityPair listenerListCapacityPair = ref mapHelper.GetOrAddValueNoResize<EventListenerListCapacityPair>(kvPair.Key, out bool added);
+
+                if (added)
+                {
+                    bool sourceListIsEmpty = list->Length == 0;
+
+                    if (sourceListIsEmpty)
+                    {
+                        // Empty
+
+                        listenerListCapacityPair = new EventListenerListCapacityPair()
+                        {
+                            // Keep original capacity
+                            RequiredCapacity = list->Capacity
+                        };
+
+                        continue;
+                    }
+                    else
+                    {
+                        // Allocate
+                        goto Allocate;
+                    }
+                }
+                else
+                {
+                    if (listenerListCapacityPair.IsCreated)
+                    {
+                        // Ensure capacity
+
+                        listenerListCapacityPair.Clear();
+                        listenerListCapacityPair.EnsureCapacity(list->Length, tempAllocator, keepOldData: false);
+
+                        // Keep original capacity
+                        listenerListCapacityPair.RequiredCapacity = list->Capacity;
+                    }
+                    else
+                    {
+                        // Allocate
+                        goto Allocate;
+                    }
+                }
+
+            Copy:
+                if (skipDestroyed)
+                {
+                    // Skip destroyed listeners
+
+                    foreach (Entity listenerEntity in EventListenerList.AsSpan(list))
+                    {
+                        bool exists = entityLookup.EntityExists(listenerEntity);
+
+                        if (Hint.Unlikely(!exists))
+                        {
+                            // TODO: profile counter
+
+                            // Destroyed
+                            continue;
+                        }
+
+                        listenerListCapacityPair.AddNoResize(listenerEntity);
+                    }
+                }
+                else
+                {
+                    // Copy all listeners
+                    listenerListCapacityPair.AddRangeNoResize(EventListenerList.AsSpan(list));
+                }
+
+                continue;
+
+            Allocate:
+                listenerListCapacityPair = new EventListenerListCapacityPair(list->Length, list->Capacity, tempAllocator);
+                goto Copy;
+            }
         }
     }
 }
