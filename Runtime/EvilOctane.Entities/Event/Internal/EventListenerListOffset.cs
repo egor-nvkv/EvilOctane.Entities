@@ -10,6 +10,7 @@ namespace EvilOctane.Entities.Internal
     {
         public nint OffsetFromFirstListHeader;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly EventListenerListHeader* GetList(EventListenerMapHeader* listenerMap, nint firstListOffset)
         {
             byte* list = (byte*)listenerMap + firstListOffset + OffsetFromFirstListHeader;

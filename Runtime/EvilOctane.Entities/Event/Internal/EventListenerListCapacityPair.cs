@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -16,28 +17,41 @@ namespace EvilOctane.Entities.Internal
         /// </summary>
         public int ListenerListStartingCapacity;
 
-        public readonly bool IsCreated => ListenerListPtr != null;
-        public readonly int ListenerListRequiredCapacity => math.max(ListenerListLength, ListenerListStartingCapacity);
+        public readonly bool IsCreated
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ListenerListPtr != null;
+        }
 
+        public readonly int ListenerListRequiredCapacity
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => math.max(ListenerListLength, ListenerListStartingCapacity);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EventListenerListCapacityPair(int capacity, AllocatorManager.AllocatorHandle allocator)
         {
-            ListenerListPtr = MemoryExposed.AllocateList_NoInline<Entity>(capacity, allocator, out ListenerListCapacity);
+            ListenerListPtr = MemoryExposed.AllocateList<Entity>(capacity, allocator, out ListenerListCapacity);
             ListenerListLength = 0;
 
             ListenerListStartingCapacity = 0;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly UnsafeSpan<Entity> AsSpan()
         {
             return new UnsafeSpan<Entity>(ListenerListPtr, ListenerListLength);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
             ListenerListLength = 0;
         }
 
-        public void EnsureCapacity(int capacity, AllocatorManager.AllocatorHandle allocator)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void EnsureCapacity(int capacity, AllocatorManager.AllocatorHandle allocator, bool keepOldData = true)
         {
             UntypedUnsafeListMutable mutable = new()
             {
@@ -47,23 +61,26 @@ namespace EvilOctane.Entities.Internal
                 Allocator = allocator
             };
 
-            MemoryExposed.EnsureListCapacity<Entity>(ref mutable, capacity);
+            MemoryExposed.EnsureListCapacity<Entity>(ref mutable, capacity, keepOldData: keepOldData);
 
             ListenerListPtr = (Entity*)mutable.Ptr;
             ListenerListCapacity = mutable.m_capacity;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnsureSlack(int slack, AllocatorManager.AllocatorHandle allocator)
         {
             EnsureCapacity(ListenerListLength + slack, allocator);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddNoResize(Entity listenerEntity)
         {
             CollectionHelper2.CheckAddNoResizeHasEnoughCapacity(ListenerListLength, ListenerListCapacity, 1);
             ListenerListPtr[ListenerListLength++] = listenerEntity;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddRangeNoResize(UnsafeSpan<Entity> span)
         {
             CollectionHelper2.CheckAddNoResizeHasEnoughCapacity(ListenerListLength, ListenerListCapacity, span.Length);
@@ -72,6 +89,15 @@ namespace EvilOctane.Entities.Internal
             ListenerListLength += span.Length;
 
             new UnsafeSpan<Entity>(ListenerListPtr + oldLength, span.Length).CopyFrom(span);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void RemoveAtSwapBack(int index)
+        {
+            CollectionHelper2.CheckContainerIndexInRange(index, ListenerListLength);
+
+            ListenerListPtr[index] = ListenerListPtr[ListenerListLength - 1];
+            --ListenerListLength;
         }
     }
 }

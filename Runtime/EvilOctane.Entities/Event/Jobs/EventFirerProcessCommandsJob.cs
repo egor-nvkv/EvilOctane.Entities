@@ -52,7 +52,9 @@ namespace EvilOctane.Entities.Internal
                 DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
                 UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO = registryCommandBuffer.AsSpanRO();
 
-                bool isFull = !ExecuteTryAddNoResize(
+                // Execute over original storage
+
+                bool isFull = !ExecuteInPlace(
                     registryStorage,
                     ref registryCommandSpanRO,
                     ref typeIndexList,
@@ -63,7 +65,7 @@ namespace EvilOctane.Entities.Internal
                     // Execute on temp map
                     // Copy back the result
 
-                    ExecuteTempMap(
+                    ExecuteOnTempMap(
                         registryStorage,
                         registryCommandSpanRO,
                         ref typeIndexList,
@@ -76,6 +78,7 @@ namespace EvilOctane.Entities.Internal
             }
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private readonly bool TryGetListenerEventTypes(ref UnsafeList<TypeIndex> typeIndexList, Entity listenerEntity, out UnsafeSpan<TypeIndex> listenerEventTypeSpanRO)
         {
             bool hasTypeBuffer = ListenerEventTypeBufferLookup.TryGetBuffer(listenerEntity, out DynamicBuffer<EventListener.EventDeclarationBuffer.TypeElement> listenerEventTypeBuffer, out bool entityExists);
@@ -108,15 +111,20 @@ namespace EvilOctane.Entities.Internal
 
             // Listener not set up
 
-            if (!typeIndexList.IsCreated)
+            if (typeIndexList.IsCreated)
+            {
+                typeIndexList.Clear();
+                typeIndexList.EnsureCapacity(listenerEventStableTypeBuffer.Length, keepOldData: false);
+            }
+            else
             {
                 typeIndexList = UnsafeListExtensions2.Create<TypeIndex>(listenerEventStableTypeBuffer.Length, TempAllocator);
             }
 
             // Manual convert
 
-            EventDeclarationFunctions.DeserializeEventTypes(listenerEventStableTypeBuffer, ref typeIndexList);
-            listenerEventTypeSpanRO = typeIndexList.AsSpan();
+            int length = EventDeclarationFunctions.DeserializeEventTypes(listenerEventStableTypeBuffer.AsSpanRO(), typeIndexList.Ptr);
+            listenerEventTypeSpanRO = new UnsafeSpan<TypeIndex>(typeIndexList.Ptr, length);
 
             return true;
         }
@@ -129,7 +137,7 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool ExecuteTryAddNoResize(
+        private bool ExecuteInPlace(
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
             ref UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO,
             ref UnsafeList<TypeIndex> typeIndexList,
@@ -138,34 +146,34 @@ namespace EvilOctane.Entities.Internal
             for (int index = 0; index != registryCommandSpanRO.Length; ++index)
             {
                 EventFirer.EventSubscriptionRegistry.CommandBufferElement registryCommand = registryCommandSpanRO[index];
-
                 UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO = new();
 
-                bool listenerIsValid = registryCommand.Command switch
+                switch (registryCommand.Command)
                 {
-                    EventFirer.EventSubscriptionRegistry.Command.SubscribeAuto or
-                    EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto => TryGetListenerEventTypes(ref typeIndexList, registryCommand.ListenerEntity, out listenerDeclaredEventTypeSpanRO),
-                    _ => ListenerEventTypeBufferLookup.EntityExists(registryCommand.ListenerEntity)
-                };
+                    case EventFirer.EventSubscriptionRegistry.Command.SubscribeAuto:
+                    case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto:
+                        bool listenerIsValid = TryGetListenerEventTypes(ref typeIndexList, registryCommand.ListenerEntity, out listenerDeclaredEventTypeSpanRO);
 
-                if (Hint.Unlikely(!listenerIsValid))
-                {
-                    // Skip Listener
-                    continue;
+                        if (Hint.Unlikely(!listenerIsValid))
+                        {
+                            // Skip Listener
+                            continue;
+                        }
+
+                        break;
                 }
 
                 bool isFull;
 
-#pragma warning disable IDE0066
                 switch (registryCommand.Command)
                 {
                     case EventFirer.EventSubscriptionRegistry.Command.SubscribeAuto:
                     default:
                         isFull = !SubscribeAutoTryNoResize(
                             registryStorage,
-                            listenerDeclaredEventTypeSpanRO,
                             ref eventTypeListenerListMap,
-                            registryCommand.ListenerEntity);
+                            registryCommand.ListenerEntity,
+                            listenerDeclaredEventTypeSpanRO);
 
                         break;
 
@@ -179,12 +187,29 @@ namespace EvilOctane.Entities.Internal
                         break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto:
-                        throw new NotImplementedException();
+                        EventSubscriptionRegistryFunctions.Unsubscribe(
+                            registryStorage,
+                            registryCommand.ListenerEntity,
+                            listenerDeclaredEventTypeSpanRO);
+
+                        isFull = false;
+                        break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeManual:
+                        EventSubscriptionRegistryFunctions.Unsubscribe(
+                            registryStorage,
+                            registryCommand.ListenerEntity,
+                            registryCommand.EventTypeIndex);
+
+                        isFull = false;
+                        break;
+
+                    case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeDestroyed:
+                        throw new NotImplementedException();
+
+                    case EventFirer.EventSubscriptionRegistry.Command.Compact:
                         throw new NotImplementedException();
                 }
-#pragma warning restore IDE0066
 
                 if (Hint.Unlikely(isFull))
                 {
@@ -199,7 +224,7 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ExecuteTempMap(
+        private void ExecuteOnTempMap(
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
             UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO,
             ref UnsafeList<TypeIndex> typeIndexList,
@@ -209,20 +234,21 @@ namespace EvilOctane.Entities.Internal
             for (int index = 0; index != registryCommandSpanRO.Length; ++index)
             {
                 EventFirer.EventSubscriptionRegistry.CommandBufferElement registryCommand = registryCommandSpanRO[index];
-
                 UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO = new();
 
-                bool listenerIsValid = registryCommand.Command switch
+                switch (registryCommand.Command)
                 {
-                    EventFirer.EventSubscriptionRegistry.Command.SubscribeAuto or
-                    EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto => TryGetListenerEventTypes(ref typeIndexList, registryCommand.ListenerEntity, out listenerDeclaredEventTypeSpanRO),
-                    _ => ListenerEventTypeBufferLookup.EntityExists(registryCommand.ListenerEntity)
-                };
+                    case EventFirer.EventSubscriptionRegistry.Command.SubscribeAuto:
+                    case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto:
+                        bool listenerIsValid = TryGetListenerEventTypes(ref typeIndexList, registryCommand.ListenerEntity, out listenerDeclaredEventTypeSpanRO);
 
-                if (Hint.Unlikely(!listenerIsValid))
-                {
-                    // Skip Listener
-                    continue;
+                        if (Hint.Unlikely(!listenerIsValid))
+                        {
+                            // Skip Listener
+                            continue;
+                        }
+
+                        break;
                 }
 
                 switch (registryCommand.Command)
@@ -247,9 +273,25 @@ namespace EvilOctane.Entities.Internal
                         break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto:
-                        throw new NotImplementedException();
+                        EventSubscriptionRegistryFunctions.Unsubscribe(
+                            ref eventTypeListenerListMap,
+                            registryCommand.ListenerEntity,
+                            listenerDeclaredEventTypeSpanRO);
+
+                        break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeManual:
+                        EventSubscriptionRegistryFunctions.Unsubscribe(
+                            ref eventTypeListenerListMap,
+                            registryCommand.ListenerEntity,
+                            registryCommand.EventTypeIndex);
+
+                        break;
+
+                    case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeDestroyed:
+                        throw new NotImplementedException();
+
+                    case EventFirer.EventSubscriptionRegistry.Command.Compact:
                         throw new NotImplementedException();
                 }
             }
@@ -274,14 +316,14 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool SubscribeAutoTryNoResize(
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
-            UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO,
             ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
-            Entity listenerEntity)
+            Entity listenerEntity,
+            UnsafeSpan<TypeIndex> eventTypeIndexSpanRO)
         {
             bool isFull = !EventSubscriptionRegistryFunctions.TrySubscribeNoResize(
                 registryStorage,
                 listenerEntity,
-                listenerDeclaredEventTypeSpanRO,
+                eventTypeIndexSpanRO,
                 out int processedCount);
 
             if (Hint.Unlikely(isFull))
@@ -301,7 +343,7 @@ namespace EvilOctane.Entities.Internal
                 EventSubscriptionRegistryFunctions.Subscribe(
                     ref eventTypeListenerListMap,
                     listenerEntity,
-                    listenerDeclaredEventTypeSpanRO[processedCount..],
+                    eventTypeIndexSpanRO[processedCount..],
                     TempAllocator);
 
                 return false;

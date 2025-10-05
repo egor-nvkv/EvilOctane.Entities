@@ -60,7 +60,7 @@ namespace EvilOctane.Entities.Internal
 
             foreach (EventListener.EventDeclarationBuffer.StableTypeElement eventStableType in eventStableTypeSpanRO)
             {
-                bool typeIndexFound = TypeManager.TryGetTypeIndexFromStableTypeHash(eventStableType.EventStableTypeHash, out TypeIndex eventTypeIndex);
+                bool typeIndexFound = TypeManager.TryGetTypeIndexFromStableTypeHash(eventStableType.EventStableTypeHash, out TypeIndex typeIndex);
 
                 if (Hint.Unlikely(!typeIndexFound))
                 {
@@ -70,7 +70,7 @@ namespace EvilOctane.Entities.Internal
 
                 // Register Event Type
 
-                bool alreadyRegistered = eventTypeBuffer.AsSpanRO().Reinterpret<TypeIndex>().Contains(eventTypeIndex);
+                bool alreadyRegistered = eventTypeBuffer.AsSpanRO().Reinterpret<TypeIndex>().Contains(typeIndex);
 
                 if (Hint.Unlikely(alreadyRegistered))
                 {
@@ -82,7 +82,7 @@ namespace EvilOctane.Entities.Internal
 
                 _ = eventTypeBuffer.AddNoResize(new EventListener.EventDeclarationBuffer.TypeElement()
                 {
-                    EventTypeIndex = eventTypeIndex
+                    EventTypeIndex = typeIndex
                 });
             }
         }

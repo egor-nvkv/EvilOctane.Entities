@@ -10,6 +10,7 @@ using Unity.Mathematics;
 using static EvilOctane.Entities.Internal.EventFirerInternal.EventSubscriptionRegistry;
 using static Unity.Collections.CollectionHelper;
 using static Unity.Collections.CollectionHelper2;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility;
 using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 using EventListenerList = Unity.Collections.LowLevel.Unsafe.InlineList<Unity.Entities.Entity>;
 using EventListenerListHeader = Unity.Collections.LowLevel.Unsafe.InlineListHeader<Unity.Entities.Entity>;
@@ -24,6 +25,18 @@ namespace EvilOctane.Entities.Internal
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => math.max(EventListenerMap.Alignment, EventListenerList.Alignment);
+        }
+
+        public static int DefaultListenerListStartingCapacity
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                int elementOffset = Align(sizeof(EventListenerListHeader), AlignOf<Entity>());
+                int elementCount = ((CacheLineSize / 2) - elementOffset) / sizeof(Entity);
+
+                return math.max(elementCount, 1);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -148,8 +161,7 @@ namespace EvilOctane.Entities.Internal
                         // Ensure capacity
 
                         listenerListCapacityPair.Clear();
-                        // TODO: trash old data
-                        listenerListCapacityPair.EnsureCapacity(list->Length, tempAllocator);
+                        listenerListCapacityPair.EnsureCapacity(list->Length, tempAllocator, keepOldData: false);
                     }
                     else
                     {
@@ -275,11 +287,11 @@ namespace EvilOctane.Entities.Internal
             listenerListCapacityPair.AddNoResize(listenerEntity);
         }
 
-        public static void Subscribe(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, Entity listenerEntity, UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO, AllocatorManager.AllocatorHandle tempAllocator)
+        public static void Subscribe(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, Entity listenerEntity, UnsafeSpan<TypeIndex> eventTypeIndexSpanRO, AllocatorManager.AllocatorHandle tempAllocator)
         {
-            foreach (TypeIndex listenerDeclaredEvent in listenerDeclaredEventTypeSpanRO)
+            foreach (TypeIndex eventTypeIndex in eventTypeIndexSpanRO)
             {
-                Subscribe(ref eventTypeListenerListMap, listenerEntity, listenerDeclaredEvent, tempAllocator);
+                Subscribe(ref eventTypeListenerListMap, listenerEntity, eventTypeIndex, tempAllocator);
             }
         }
 
@@ -317,13 +329,13 @@ namespace EvilOctane.Entities.Internal
             return true;
         }
 
-        public static bool TrySubscribeNoResize(DynamicBuffer<Storage> storage, Entity listenerEntity, UnsafeSpan<TypeIndex> listenerDeclaredEventTypeSpanRO, out int processedCount)
+        public static bool TrySubscribeNoResize(DynamicBuffer<Storage> storage, Entity listenerEntity, UnsafeSpan<TypeIndex> eventTypeIndexSpanRO, out int processedCount)
         {
             processedCount = 0;
 
-            foreach (TypeIndex listenerDeclaredEvent in listenerDeclaredEventTypeSpanRO)
+            foreach (TypeIndex eventTypeIndex in eventTypeIndexSpanRO)
             {
-                if (!TrySubscribeNoResize(storage, listenerEntity, listenerDeclaredEvent))
+                if (!TrySubscribeNoResize(storage, listenerEntity, eventTypeIndex))
                 {
                     // Full
                     return false;
@@ -332,7 +344,70 @@ namespace EvilOctane.Entities.Internal
                 ++processedCount;
             }
 
-            return processedCount == listenerDeclaredEventTypeSpanRO.Length;
+            return processedCount == eventTypeIndexSpanRO.Length;
+        }
+
+        public static void Unsubscribe(DynamicBuffer<Storage> storage, Entity listenerEntity, TypeIndex eventTypeIndex)
+        {
+            EventListenerMapHeader* listenerMap = GetListenerMap(storage);
+            bool eventTypeDeclared = EventListenerMap.TryGetValue(listenerMap, eventTypeIndex, out EventListenerListOffset listOffset);
+
+            if (!eventTypeDeclared)
+            {
+                // Event Type not declared
+                return;
+            }
+
+            nint firstListOffset = GetFirstListenerListOffset(listenerMap);
+            EventListenerListHeader* list = listOffset.GetList(listenerMap, firstListOffset);
+
+            int index = EventListenerList.AsSpan(list).IndexOf(listenerEntity);
+
+            if (Hint.Unlikely(index < 0))
+            {
+                // Not subscribed
+                return;
+            }
+
+            EventListenerList.RemoveAtSwapBack(list, index);
+        }
+
+        public static void Unsubscribe(DynamicBuffer<Storage> storage, Entity listenerEntity, UnsafeSpan<TypeIndex> eventTypeIndexSpanRO)
+        {
+            foreach (TypeIndex eventTypeIndex in eventTypeIndexSpanRO)
+            {
+                Unsubscribe(storage, listenerEntity, eventTypeIndex);
+            }
+        }
+
+        public static void Unsubscribe(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, Entity listenerEntity, TypeIndex eventTypeIndex)
+        {
+            HashMapHelperRef<TypeIndex> mapHelper = eventTypeListenerListMap.GetHelperRef();
+            ref EventListenerListCapacityPair listenerListCapacityPair = ref mapHelper.TryGetValueRef<EventListenerListCapacityPair>(eventTypeIndex, out bool exists);
+
+            if (!exists)
+            {
+                // Event Type not declared
+                return;
+            }
+
+            int index = listenerListCapacityPair.AsSpan().IndexOf(listenerEntity);
+
+            if (index < 0)
+            {
+                // Not subscribed
+                return;
+            }
+
+            listenerListCapacityPair.RemoveAtSwapBack(index);
+        }
+
+        public static void Unsubscribe(ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap, Entity listenerEntity, UnsafeSpan<TypeIndex> eventTypeIndexSpanRO)
+        {
+            foreach (TypeIndex eventTypeIndex in eventTypeIndexSpanRO)
+            {
+                Unsubscribe(ref eventTypeListenerListMap, listenerEntity, eventTypeIndex);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

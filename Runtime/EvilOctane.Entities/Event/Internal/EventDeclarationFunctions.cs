@@ -1,22 +1,24 @@
+using Unity.Assertions;
 using Unity.Burst.CompilerServices;
-using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 
-namespace EvilOctane.Entities
+namespace EvilOctane.Entities.Internal
 {
-    public static class EventDeclarationFunctions
+    public static unsafe class EventDeclarationFunctions
     {
         public static void DeserializeEventTypes(
             UnsafeSpan<EventFirer.EventDeclarationBuffer.StableTypeElement> eventStableTypeSpanRO,
             ref UnsafeHashMap<TypeIndex, int> eventTypeListenerCapacityMap)
         {
+            Assert.IsTrue(eventTypeListenerCapacityMap.IsEmpty);
+
             HashMapHelperRef<TypeIndex> mapHelper = eventTypeListenerCapacityMap.GetHelperRef();
-            mapHelper.EnsureCapacity(eventStableTypeSpanRO.Length);
+            mapHelper.EnsureCapacity(eventStableTypeSpanRO.Length, keepOldData: false);
 
             foreach (EventFirer.EventDeclarationBuffer.StableTypeElement eventStableType in eventStableTypeSpanRO)
             {
-                bool typeIndexFound = TypeManager.TryGetTypeIndexFromStableTypeHash(eventStableType.EventStableTypeHash, out TypeIndex eventTypeIndex);
+                bool typeIndexFound = TypeManager.TryGetTypeIndexFromStableTypeHash(eventStableType.EventStableTypeHash, out TypeIndex typeIndex);
 
                 if (Hint.Unlikely(!typeIndexFound))
                 {
@@ -25,24 +27,31 @@ namespace EvilOctane.Entities
                 }
 
                 // Register Event Type
-                _ = mapHelper.TryAddNoResize(eventTypeIndex, eventStableType.ListenerListInitialCapacity);
+                _ = mapHelper.TryAddNoResize(typeIndex, eventStableType.ListenerListInitialCapacity);
             }
         }
 
-        public static void DeserializeEventTypes(
-            DynamicBuffer<EventListener.EventDeclarationBuffer.StableTypeElement> eventStableTypeBuffer,
-            ref UnsafeList<TypeIndex> eventTypeIndexList)
+        public static int DeserializeEventTypes(
+            UnsafeSpan<EventListener.EventDeclarationBuffer.StableTypeElement> eventStableTypeSpanRO,
+            TypeIndex* eventTypeIndexPtr)
         {
-            eventTypeIndexList.Clear();
-            eventTypeIndexList.EnsureCapacity(eventStableTypeBuffer.Length);
+            int count = 0;
 
-            foreach (EventListener.EventDeclarationBuffer.StableTypeElement eventStableType in eventStableTypeBuffer)
+            foreach (EventListener.EventDeclarationBuffer.StableTypeElement eventStableType in eventStableTypeSpanRO)
             {
-                if (TypeManager.TryGetTypeIndexFromStableTypeHash(eventStableType.EventStableTypeHash, out TypeIndex typeIndex))
+                bool typeIndexFound = TypeManager.TryGetTypeIndexFromStableTypeHash(eventStableType.EventStableTypeHash, out TypeIndex typeIndex);
+
+                if (Hint.Unlikely(!typeIndexFound))
                 {
-                    eventTypeIndexList.AddNoResize(typeIndex);
+                    // Type Index not found
+                    continue;
                 }
+
+                eventTypeIndexPtr[count] = typeIndex;
+                ++count;
             }
+
+            return count;
         }
     }
 }

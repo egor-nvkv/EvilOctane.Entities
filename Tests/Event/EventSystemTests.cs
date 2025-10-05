@@ -1,4 +1,3 @@
-using EvilOctane.Entities.Internal;
 using NUnit.Framework;
 using System;
 using System.Text.RegularExpressions;
@@ -12,9 +11,9 @@ namespace EvilOctane.Entities.Tests
 {
     public unsafe class EventSystemTests
     {
-        private static readonly int[] eventFirerCountArray = { 1, 16, 32 };
+        private static readonly int[] eventFirerCountArray = { 1, 8, 16 };
         private static readonly int[] eventListenerCountArray = { 1, 16, 32 };
-        private static readonly int[] eventCountArray = { 1, 16, 64 };
+        private static readonly int[] eventCountArray = { 1, 16, 32 };
 
         private static readonly Regex undeclaredTypeRegex = new("EventSystem.*UndeclaredEvent.*");
 
@@ -187,7 +186,7 @@ namespace EvilOctane.Entities.Tests
             commandBuffer.Playback(entityManager);
         }
 
-        private static void SubscribeToEvents(EntityManager entityManager, NativeArray<Entity> eventFirerEntities, NativeArray<Entity> eventListenerEntities, int eventListenerCount)
+        private static void Subscribe(EntityManager entityManager, NativeArray<Entity> eventFirerEntities, NativeArray<Entity> eventListenerEntities, int eventListenerCount)
         {
             EntityCommandBuffer commandBuffer = new(entityManager.WorldUnmanaged.UpdateAllocator.ToAllocator);
 
@@ -214,6 +213,9 @@ namespace EvilOctane.Entities.Tests
                     {
                         // Auto
                         EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+
+                        // Duplicate
+                        EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
                     }
 
                     // Listener 2
@@ -221,8 +223,54 @@ namespace EvilOctane.Entities.Tests
                         // Auto
                         EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity2);
 
-                        // Custom
+                        // Manual
                         EventSystem.SubscribeToEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                    }
+                }
+            }
+
+            commandBuffer.Playback(entityManager);
+        }
+
+        private static void Unsubscribe(EntityManager entityManager, NativeArray<Entity> eventFirerEntities, NativeArray<Entity> eventListenerEntities, int eventListenerCount)
+        {
+            EntityCommandBuffer commandBuffer = new(entityManager.WorldUnmanaged.UpdateAllocator.ToAllocator);
+
+            foreach (Entity eventFirerEntity in eventFirerEntities)
+            {
+                for (int listenerIndex = 0; listenerIndex < eventListenerCount; ++listenerIndex)
+                {
+                    int eventListenerIndex = listenerIndex * 3;
+
+                    Entity eventListenerEntity0 = eventListenerEntities[eventListenerIndex];
+                    Entity eventListenerEntity1 = eventListenerEntities[eventListenerIndex + 1];
+                    Entity eventListenerEntity2 = eventListenerEntities[eventListenerIndex + 2];
+
+                    // Listener 0
+                    {
+                        // Auto
+                        EventSystem.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity0);
+
+                        // Duplicate
+                        EventSystem.UnsubscribeFromEvent<EventSingle>(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                    }
+
+                    // Listener 1
+                    {
+                        // Auto
+                        EventSystem.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+
+                        // Duplicate
+                        EventSystem.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+                    }
+
+                    // Listener 2
+                    {
+                        // Auto
+                        EventSystem.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity2);
+
+                        // Manual
+                        EventSystem.UnsubscribeFromEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
                     }
                 }
             }
@@ -234,6 +282,13 @@ namespace EvilOctane.Entities.Tests
         {
             EntityCommandBuffer commandBuffer = new(entityManager.World.UpdateAllocator.ToAllocator);
             commandBuffer.RemoveComponent<EventFirer.IsAliveTag>(eventFirerEntities);
+            commandBuffer.Playback(entityManager);
+        }
+
+        private static void DestroyEventFirers(EntityManager entityManager, NativeArray<Entity> eventFirerEntities)
+        {
+            EntityCommandBuffer commandBuffer = new(entityManager.World.UpdateAllocator.ToAllocator);
+            commandBuffer.DestroyEntity(eventFirerEntities);
             commandBuffer.Playback(entityManager);
         }
 
@@ -327,16 +382,42 @@ namespace EvilOctane.Entities.Tests
         }
 
         [Test]
-        public void TestEventEntitiesGetCorrectData(
-            [ValueSource(nameof(eventFirerCountArray))] int eventFirerCount,
-            [ValueSource(nameof(eventCountArray))] int eventCount)
+        public void TestEventFirersGetCleanedUp([ValueSource(nameof(eventFirerCountArray))] int eventFirerCount)
         {
-            // Set up Entities
+            // Set up
 
             using World world = CreateWorld();
             EntityManager entityManager = world.EntityManager;
 
-            CreateEventFirersAndListeners(entityManager, eventFirerCount, 0, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out NativeArray<Entity> eventListenerEntities);
+            CreateEventFirersAndListeners(entityManager, eventFirerCount, 0, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out _);
+            world.Update();
+
+            // Destroy
+            DestroyEventFirers(entityManager, eventFirerEntities);
+
+            // Update for cleanup
+            world.Update();
+
+            // Update for ECBS playback
+            world.Update();
+
+            for (int firerIndex = 0; firerIndex != eventFirerCount; ++firerIndex)
+            {
+                Assert.IsFalse(entityManager.Exists(eventFirerEntities[firerIndex]), "Firer was not cleaned up");
+            }
+        }
+
+        [Test]
+        public void TestEventEntitiesGetCorrectData(
+            [ValueSource(nameof(eventFirerCountArray))] int eventFirerCount,
+            [ValueSource(nameof(eventCountArray))] int eventCount)
+        {
+            // Set up
+
+            using World world = CreateWorld();
+            EntityManager entityManager = world.EntityManager;
+
+            CreateEventFirersAndListeners(entityManager, eventFirerCount, 0, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out _);
             world.Update();
 
             // Fire Events
@@ -395,12 +476,12 @@ namespace EvilOctane.Entities.Tests
             [ValueSource(nameof(eventFirerCountArray))] int eventFirerCount,
             [ValueSource(nameof(eventCountArray))] int eventCount)
         {
-            // Set up Entities
+            // Set up
 
             using World world = CreateWorld();
             EntityManager entityManager = world.EntityManager;
 
-            CreateEventFirersAndListeners(entityManager, eventFirerCount, 0, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out NativeArray<Entity> eventListenerEntities);
+            CreateEventFirersAndListeners(entityManager, eventFirerCount, 0, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out _);
             world.Update();
 
             // Fire Events
@@ -433,7 +514,7 @@ namespace EvilOctane.Entities.Tests
             [ValueSource(nameof(eventListenerCountArray))] int eventListenerCount,
             [ValueSource(nameof(eventCountArray))] int eventCount)
         {
-            // Set up Entities
+            // Set up
 
             using World world = CreateWorld();
             EntityManager entityManager = world.EntityManager;
@@ -442,7 +523,7 @@ namespace EvilOctane.Entities.Tests
             world.Update();
 
             // Subscribe
-            SubscribeToEvents(entityManager, eventFirerEntities, eventListenerEntities, eventListenerCount);
+            Subscribe(entityManager, eventFirerEntities, eventListenerEntities, eventListenerCount);
 
             // Fire Events
             FireEvents(entityManager, eventFirerEntities, eventCount);
@@ -479,6 +560,68 @@ namespace EvilOctane.Entities.Tests
                 {
                     DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer2 = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity2);
                     AssertCorrectEventsGetReceivedInOrder(eventFirerEntities, eventEntityListPerEventFirer, eventReceiveBuffer2, 0, eventCount * 3);
+                }
+            }
+
+            // Cleanup
+            CleanupEventFirers(entityManager, eventFirerEntities);
+        }
+
+        [Test]
+        public void TestUnsubscribeWorks(
+            [ValueSource(nameof(eventFirerCountArray))] int eventFirerCount,
+            [ValueSource(nameof(eventListenerCountArray))] int eventListenerCount,
+            [ValueSource(nameof(eventCountArray))] int eventCount)
+        {
+            // Set up
+
+            using World world = CreateWorld();
+            EntityManager entityManager = world.EntityManager;
+
+            CreateEventFirersAndListeners(entityManager, eventFirerCount, eventListenerCount, Allocator.Temp, out NativeArray<Entity> eventFirerEntities, out NativeArray<Entity> eventListenerEntities);
+            world.Update();
+
+            // Subscribe
+            Subscribe(entityManager, eventFirerEntities, eventListenerEntities, eventListenerCount);
+
+            // Unsubscribe
+            Unsubscribe(entityManager, eventFirerEntities, eventListenerEntities, eventListenerCount);
+
+            // Fire Events
+            FireEvents(entityManager, eventFirerEntities, eventCount);
+
+            // Get Event Entities
+            NativeArray<UnsafeList<Entity>> eventEntityListPerEventFirer = GetAllEventEntities(entityManager, eventFirerEntities);
+
+            // Update to get Events to Receive Buffers
+            world.Update();
+
+            // Check Receive Buffers
+
+            for (int listenerIndex = 0; listenerIndex != eventListenerCount; ++listenerIndex)
+            {
+                int eventListenerIndex = listenerIndex * 3;
+
+                Entity eventListenerEntity0 = eventListenerEntities[eventListenerIndex];
+                Entity eventListenerEntity1 = eventListenerEntities[eventListenerIndex + 1];
+                Entity eventListenerEntity2 = eventListenerEntities[eventListenerIndex + 2];
+
+                // Listener 0
+                {
+                    DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer0 = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity0);
+                    Assert.IsTrue(eventReceiveBuffer0.IsEmpty);
+                }
+
+                // Listener 1
+                {
+                    DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer1 = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity1);
+                    Assert.IsTrue(eventReceiveBuffer1.IsEmpty);
+                }
+
+                // Listener 2
+                {
+                    DynamicBuffer<EventListener.EventReceiveBuffer.Element> eventReceiveBuffer2 = entityManager.GetBuffer<EventListener.EventReceiveBuffer.Element>(eventListenerEntity2);
+                    Assert.IsTrue(eventReceiveBuffer2.IsEmpty);
                 }
             }
 

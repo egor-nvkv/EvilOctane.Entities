@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.11.1] - 2025-10-05
+
+* EventSystem Unsubscribe is now supported
+
 ## [0.11.0] - 2025-10-03
 
 EventSystem, Lifetime fixes and improvements

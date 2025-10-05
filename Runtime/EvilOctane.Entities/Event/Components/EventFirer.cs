@@ -1,10 +1,7 @@
+using EvilOctane.Entities.Internal;
 using System.Runtime.CompilerServices;
 using Unity.Entities;
-using Unity.Mathematics;
-using static Unity.Collections.CollectionHelper;
 using static Unity.Collections.CollectionHelper2;
-using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility;
-using EventListenerListHeader = Unity.Collections.LowLevel.Unsafe.InlineListHeader<Unity.Entities.Entity>;
 
 namespace EvilOctane.Entities
 {
@@ -22,22 +19,10 @@ namespace EvilOctane.Entities
                 public ulong EventStableTypeHash;
                 public int ListenerListInitialCapacity;
 
-                public static int DefaultListenerListCapacity
-                {
-                    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                    get
-                    {
-                        int elementOffset = Align(sizeof(EventListenerListHeader), AlignOf<Entity>());
-                        int elementCount = (CacheLineSize - elementOffset) / sizeof(Entity);
-
-                        return math.max(elementCount, 1);
-                    }
-                }
-
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 public static StableTypeElement Default<T>()
                 {
-                    return Create<T>(DefaultListenerListCapacity);
+                    return Create<T>(EventSubscriptionRegistryFunctions.DefaultListenerListStartingCapacity);
                 }
 
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -74,7 +59,9 @@ namespace EvilOctane.Entities
                 SubscribeAuto,
                 SubscribeManual,
                 UnsubscribeAuto,
-                UnsubscribeManual
+                UnsubscribeManual,
+                UnsubscribeDestroyed,
+                Compact
             }
         }
 
