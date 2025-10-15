@@ -6,10 +6,10 @@ using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using EventListenerList = Unity.Collections.LowLevel.Unsafe.InlineList<Unity.Entities.Entity>;
-using EventListenerListHeader = Unity.Collections.LowLevel.Unsafe.InlineListHeader<Unity.Entities.Entity>;
-using EventListenerMap = Unity.Collections.LowLevel.Unsafe.InlineHashMap<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListOffset>;
-using EventListenerMapHeader = Unity.Collections.LowLevel.Unsafe.InlineHashMapHeader<Unity.Entities.TypeIndex>;
+using EventListenerList = EvilOctane.Collections.LowLevel.Unsafe.InPlaceList<Unity.Entities.Entity>;
+using EventListenerListHeader = EvilOctane.Collections.LowLevel.Unsafe.InPlaceListHeader<Unity.Entities.Entity>;
+using EventListenerTable = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTable<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListOffset, EvilOctane.Collections.XXH3PodHasher<Unity.Entities.TypeIndex>>;
+using EventListenerTableHeader = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTableHeader<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListOffset>;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -58,7 +58,7 @@ namespace EvilOctane.Entities.Internal
                 }
 
                 DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
-                EventListenerMapHeader* listenerMap = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage, readOnly: true);
+                EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage, readOnly: true);
 
                 DynamicBuffer<EventFirer.EventBuffer.TypeElement> eventTypeBuffer = eventTypeBufferAccessor[entityIndex];
                 Assert.AreEqual(eventEntityBuffer.Length, eventTypeBuffer.Length);
@@ -67,7 +67,7 @@ namespace EvilOctane.Entities.Internal
 
                 RouteEvents(
                     entityPtr[entityIndex],
-                    listenerMap,
+                    listenerTable,
                     eventEntityBuffer.AsSpanRO(),
                     eventTypeBuffer.AsSpanRO());
             }
@@ -75,18 +75,18 @@ namespace EvilOctane.Entities.Internal
 
         private void RouteEvents(
             Entity entity,
-            EventListenerMapHeader* listenerMap,
+            EventListenerTableHeader* listenerTable,
             UnsafeSpan<EventFirer.EventBuffer.EntityElement> eventSpanRO,
             UnsafeSpan<EventFirer.EventBuffer.TypeElement> eventTypeSpanRO)
         {
-            nint firstListOffset = EventSubscriptionRegistryAPI.GetFirstListenerListOffset(listenerMap->Count);
+            nint firstListOffset = EventSubscriptionRegistryAPI.GetFirstListenerListOffset(listenerTable->Count);
 
             for (int eventIndex = 0; eventIndex != eventSpanRO.Length; ++eventIndex)
             {
                 TypeIndex eventTypeIndex = eventTypeSpanRO[eventIndex].EventTypeIndex;
-                bool eventTypeRegistered = EventListenerMap.TryGetValue(listenerMap, eventTypeIndex, out EventListenerListOffset listenerListOffset);
+                ref EventListenerListOffset listenerListOffset = ref EventListenerTable.TryGet(listenerTable, eventTypeIndex, out bool exists);
 
-                if (Hint.Unlikely(!eventTypeRegistered))
+                if (Hint.Unlikely(!exists))
                 {
                     // Event Type not registered
 
@@ -100,7 +100,7 @@ namespace EvilOctane.Entities.Internal
                 }
 
                 // Listeners to this Event Type
-                EventListenerListHeader* listenerList = listenerListOffset.GetList(listenerMap, firstListOffset);
+                EventListenerListHeader* listenerList = listenerListOffset.GetList(listenerTable, firstListOffset);
 
                 if (listenerList->Length == 0)
                 {

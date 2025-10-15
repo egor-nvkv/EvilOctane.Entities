@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
-using EventListenerList = Unity.Collections.LowLevel.Unsafe.InlineList<Unity.Entities.Entity>;
-using EventListenerListHeader = Unity.Collections.LowLevel.Unsafe.InlineListHeader<Unity.Entities.Entity>;
-using EventListenerMapHeader = Unity.Collections.LowLevel.Unsafe.InlineHashMapHeader<Unity.Entities.TypeIndex>;
+using EventListenerList = EvilOctane.Collections.LowLevel.Unsafe.InPlaceList<Unity.Entities.Entity>;
+using EventListenerListHeader = EvilOctane.Collections.LowLevel.Unsafe.InPlaceListHeader<Unity.Entities.Entity>;
+using EventListenerTableHeader = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTableHeader<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListOffset>;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -11,11 +11,11 @@ namespace EvilOctane.Entities.Internal
         public nint OffsetFromFirstListHeader;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly EventListenerListHeader* GetList(EventListenerMapHeader* listenerMap, nint firstListOffset)
+        public readonly EventListenerListHeader* GetList(EventListenerTableHeader* listenerTable, nint firstListOffset)
         {
-            byte* list = (byte*)listenerMap + firstListOffset + OffsetFromFirstListHeader;
+            byte* list = (byte*)listenerTable + firstListOffset + OffsetFromFirstListHeader;
 
-            CheckIsAligned(list, EventListenerList.Alignment);
+            CheckIsAligned(list, EventListenerList.BufferAlignment);
             return (EventListenerListHeader*)list;
         }
 

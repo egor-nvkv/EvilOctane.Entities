@@ -8,7 +8,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using static System.Runtime.CompilerServices.Unsafe;
-using EventListenerMapHeader = Unity.Collections.LowLevel.Unsafe.InlineHashMapHeader<Unity.Entities.TypeIndex>;
+using EventListenerTableHeader = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTableHeader<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListOffset>;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -124,9 +124,9 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private readonly UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> AllocateEventTypeListenerListMap(EventListenerMapHeader* listenerMap)
+        private readonly UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> AllocateEventTypeListenerListMap(EventListenerTableHeader* listenerTable)
         {
-            int capacity = listenerMap->Count + 4;
+            int capacity = listenerTable->Count + 4;
             return UnsafeHashMapUtility.CreateHashMap<TypeIndex, EventListenerListCapacityPair>(capacity, 8, TempAllocator);
         }
 
@@ -148,8 +148,8 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListMap.IsCreated)
                 {
-                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
-                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerMap);
+                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
+                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerTable);
                 }
 
                 EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
@@ -383,8 +383,8 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListMap.IsCreated)
                 {
-                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
-                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerMap);
+                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
+                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerTable);
                 }
 
                 EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
@@ -421,8 +421,8 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListMap.IsCreated)
                 {
-                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
-                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerMap);
+                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
+                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerTable);
                 }
 
                 EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
