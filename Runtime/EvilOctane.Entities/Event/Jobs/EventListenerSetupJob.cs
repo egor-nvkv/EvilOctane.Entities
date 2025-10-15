@@ -9,6 +9,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
 using static EvilOctane.Entities.EventAPI;
+using static EvilOctane.Entities.Internal.EventAPIInternal;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -62,7 +63,7 @@ namespace EvilOctane.Entities.Internal
             CommandBuffer.RemoveComponent<EventListener.EventDeclarationBuffer.StableTypeElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
 
             // Add runtime components
-            ComponentTypeSet componentTypeSet = EventSystemInternal.GetEventListenerComponentTypeSet();
+            ComponentTypeSet componentTypeSet = GetEventListenerComponentTypeSet();
             CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
 
             // Setup runtime components

@@ -5,7 +5,7 @@ using Unity.Entities;
 
 namespace EvilOctane.Entities.Internal
 {
-    public static unsafe class EventDeclarationFunctions
+    public static unsafe class EventDeclarationAPI
     {
         public static void DeserializeEventTypes(
             UnsafeSpan<EventFirer.EventDeclarationBuffer.StableTypeElement> eventStableTypeSpanRO,

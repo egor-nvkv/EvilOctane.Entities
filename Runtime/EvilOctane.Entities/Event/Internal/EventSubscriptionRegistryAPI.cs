@@ -22,12 +22,6 @@ namespace EvilOctane.Entities.Internal
 {
     public static unsafe class EventSubscriptionRegistryAPI
     {
-        public static int Alignment
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => math.max(EventListenerTable.BufferAlignment, EventListenerList.BufferAlignment);
-        }
-
         public static int ListenerListDefaultInitialCapacity
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

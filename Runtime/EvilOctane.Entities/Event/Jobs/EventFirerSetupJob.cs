@@ -5,6 +5,8 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
+using static EvilOctane.Entities.Internal.EventAPIInternal;
+using static EvilOctane.Entities.Internal.EventDeclarationAPI;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -30,7 +32,7 @@ namespace EvilOctane.Entities.Internal
             CommandBuffer.RemoveComponent<EventFirer.EventDeclarationBuffer.StableTypeElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
 
             // Add runtime components
-            ComponentTypeSet componentTypeSet = EventSystemInternal.GetEventFirerComponentTypeSet();
+            ComponentTypeSet componentTypeSet = GetEventFirerComponentTypeSet();
             CommandBuffer.AddComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
 
             // Setup runtime components
@@ -64,7 +66,7 @@ namespace EvilOctane.Entities.Internal
             ref UnsafeHashMap<TypeIndex, int> eventTypeListenerCapacityMap)
         {
             // Deserialize Event Types
-            EventDeclarationFunctions.DeserializeEventTypes(eventStableTypeSpanRO, ref eventTypeListenerCapacityMap);
+            DeserializeEventTypes(eventStableTypeSpanRO, ref eventTypeListenerCapacityMap);
 
             // Setup Event Listener Registry
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = CommandBuffer.SetBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage>(sortKey, entity);

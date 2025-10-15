@@ -7,6 +7,7 @@ using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using static EvilOctane.Entities.Internal.EventDeclarationAPI;
 using static System.Runtime.CompilerServices.Unsafe;
 using EventListenerTableHeader = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTableHeader<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListOffset>;
 
@@ -117,7 +118,7 @@ namespace EvilOctane.Entities.Internal
 
             // Manual convert
 
-            int length = EventDeclarationFunctions.DeserializeEventTypes(listenerEventStableTypeBuffer.AsSpanRO(), typeIndexList.Ptr);
+            int length = DeserializeEventTypes(listenerEventStableTypeBuffer.AsSpanRO(), typeIndexList.Ptr);
             listenerEventTypeSpanRO = new UnsafeSpan<TypeIndex>(typeIndexList.Ptr, length);
 
             return true;

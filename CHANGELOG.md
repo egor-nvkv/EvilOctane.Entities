@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.0] - 2025-10-15
+
+* Authoring classes for event firer and listener
+
 ## [0.11.1] - 2025-10-05
 
 * EventSystem Unsubscribe is now supported

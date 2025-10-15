@@ -3,7 +3,7 @@ using Unity.Entities;
 
 namespace EvilOctane.Entities.Internal
 {
-    public static partial class EventSystemInternal
+    public static partial class EventAPIInternal
     {
         // Firer
 

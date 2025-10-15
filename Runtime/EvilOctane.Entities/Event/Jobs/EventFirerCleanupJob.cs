@@ -4,6 +4,7 @@ using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
+using static EvilOctane.Entities.Internal.EventAPIInternal;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -22,7 +23,7 @@ namespace EvilOctane.Entities.Internal
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
             // Remove cleanup components
-            ComponentTypeSet componentTypeSet = EventSystemInternal.GetEventFirerComponentTypeSet(includeIsAliveTag: false);
+            ComponentTypeSet componentTypeSet = GetEventFirerComponentTypeSet(includeIsAliveTag: false);
             CommandBuffer.RemoveComponent(unfilteredChunkIndex, entityPtr, chunk.Count, componentTypeSet);
         }
     }
