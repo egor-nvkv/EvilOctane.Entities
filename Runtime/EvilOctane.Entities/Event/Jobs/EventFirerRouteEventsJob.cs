@@ -58,7 +58,7 @@ namespace EvilOctane.Entities.Internal
                 }
 
                 DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
-                EventListenerMapHeader* listenerMap = EventSubscriptionRegistryFunctions.GetListenerMap(registryStorage, readOnly: true);
+                EventListenerMapHeader* listenerMap = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage, readOnly: true);
 
                 DynamicBuffer<EventFirer.EventBuffer.TypeElement> eventTypeBuffer = eventTypeBufferAccessor[entityIndex];
                 Assert.AreEqual(eventEntityBuffer.Length, eventTypeBuffer.Length);
@@ -79,7 +79,7 @@ namespace EvilOctane.Entities.Internal
             UnsafeSpan<EventFirer.EventBuffer.EntityElement> eventSpanRO,
             UnsafeSpan<EventFirer.EventBuffer.TypeElement> eventTypeSpanRO)
         {
-            nint firstListOffset = EventSubscriptionRegistryFunctions.GetFirstListenerListOffset(listenerMap->Count);
+            nint firstListOffset = EventSubscriptionRegistryAPI.GetFirstListenerListOffset(listenerMap->Count);
 
             for (int eventIndex = 0; eventIndex != eventSpanRO.Length; ++eventIndex)
             {

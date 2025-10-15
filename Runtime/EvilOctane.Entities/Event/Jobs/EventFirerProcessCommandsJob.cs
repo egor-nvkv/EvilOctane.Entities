@@ -148,11 +148,11 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListMap.IsCreated)
                 {
-                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryFunctions.GetListenerMap(registryStorage);
+                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
                     eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerMap);
                 }
 
-                EventSubscriptionRegistryFunctions.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
+                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
 
                 // In temp map mode
                 isInTempMapMode = true;
@@ -182,7 +182,7 @@ namespace EvilOctane.Entities.Internal
                     ref eventTypeListenerListMap);
 
                 // Copy back
-                EventSubscriptionRegistryFunctions.CopyFrom(registryStorage, ref eventTypeListenerListMap, compact: hasCompactCommand);
+                EventSubscriptionRegistryAPI.CopyFrom(registryStorage, ref eventTypeListenerListMap, compact: hasCompactCommand);
 
                 // Clear map
 
@@ -259,7 +259,7 @@ namespace EvilOctane.Entities.Internal
                         break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto:
-                        EventSubscriptionRegistryFunctions.Unsubscribe(
+                        EventSubscriptionRegistryAPI.Unsubscribe(
                             registryStorage,
                             registryCommand.ListenerEntity,
                             listenerDeclaredEventTypeSpanRO);
@@ -268,7 +268,7 @@ namespace EvilOctane.Entities.Internal
                         break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeManual:
-                        EventSubscriptionRegistryFunctions.Unsubscribe(
+                        EventSubscriptionRegistryAPI.Unsubscribe(
                             registryStorage,
                             registryCommand.ListenerEntity,
                             registryCommand.EventTypeIndex);
@@ -328,7 +328,7 @@ namespace EvilOctane.Entities.Internal
                 {
                     case EventFirer.EventSubscriptionRegistry.Command.SubscribeAuto:
                     default:
-                        EventSubscriptionRegistryFunctions.Subscribe(
+                        EventSubscriptionRegistryAPI.Subscribe(
                             ref eventTypeListenerListMap,
                             registryCommand.ListenerEntity,
                             listenerDeclaredEventTypeSpanRO,
@@ -337,7 +337,7 @@ namespace EvilOctane.Entities.Internal
                         break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.SubscribeManual:
-                        EventSubscriptionRegistryFunctions.Subscribe(
+                        EventSubscriptionRegistryAPI.Subscribe(
                             ref eventTypeListenerListMap,
                             registryCommand.ListenerEntity,
                             registryCommand.EventTypeIndex,
@@ -346,7 +346,7 @@ namespace EvilOctane.Entities.Internal
                         break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto:
-                        EventSubscriptionRegistryFunctions.Unsubscribe(
+                        EventSubscriptionRegistryAPI.Unsubscribe(
                             ref eventTypeListenerListMap,
                             registryCommand.ListenerEntity,
                             listenerDeclaredEventTypeSpanRO);
@@ -354,7 +354,7 @@ namespace EvilOctane.Entities.Internal
                         break;
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeManual:
-                        EventSubscriptionRegistryFunctions.Unsubscribe(
+                        EventSubscriptionRegistryAPI.Unsubscribe(
                             ref eventTypeListenerListMap,
                             registryCommand.ListenerEntity,
                             registryCommand.EventTypeIndex);
@@ -371,7 +371,7 @@ namespace EvilOctane.Entities.Internal
             Entity listenerEntity,
             UnsafeSpan<TypeIndex> eventTypeIndexSpanRO)
         {
-            bool isFull = !EventSubscriptionRegistryFunctions.TrySubscribeNoResize(
+            bool isFull = !EventSubscriptionRegistryAPI.TrySubscribeNoResize(
                 registryStorage,
                 listenerEntity,
                 eventTypeIndexSpanRO,
@@ -383,15 +383,15 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListMap.IsCreated)
                 {
-                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryFunctions.GetListenerMap(registryStorage);
+                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
                     eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerMap);
                 }
 
-                EventSubscriptionRegistryFunctions.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
+                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
 
                 // Process remainder
 
-                EventSubscriptionRegistryFunctions.Subscribe(
+                EventSubscriptionRegistryAPI.Subscribe(
                     ref eventTypeListenerListMap,
                     listenerEntity,
                     eventTypeIndexSpanRO[processedCount..],
@@ -410,7 +410,7 @@ namespace EvilOctane.Entities.Internal
             Entity listenerEntity,
             TypeIndex eventTypeIndex)
         {
-            bool isFull = !EventSubscriptionRegistryFunctions.TrySubscribeNoResize(
+            bool isFull = !EventSubscriptionRegistryAPI.TrySubscribeNoResize(
                 registryStorage,
                 listenerEntity,
                 eventTypeIndex);
@@ -421,15 +421,15 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListMap.IsCreated)
                 {
-                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryFunctions.GetListenerMap(registryStorage);
+                    EventListenerMapHeader* listenerMap = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
                     eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerMap);
                 }
 
-                EventSubscriptionRegistryFunctions.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
+                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
 
                 // Process remainder
 
-                EventSubscriptionRegistryFunctions.Subscribe(
+                EventSubscriptionRegistryAPI.Subscribe(
                     ref eventTypeListenerListMap,
                     listenerEntity,
                     eventTypeIndex,

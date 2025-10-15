@@ -53,7 +53,7 @@ namespace EvilOctane.Entities.Internal
 
             BufferAccessor<EventBuffer.EntityElement> eventEntityBufferAccessor = chunk.GetBufferAccessorRW(ref EventEntityBufferTypeHandle);
             BufferAccessor<EventBuffer.TypeElement> eventTypeBufferAccessor = chunk.GetBufferAccessorRW(ref EventTypeBufferTypeHandle);
-            EventSubscriptionRegistryComponent* EventSubscriptionRegistryPtr = chunk.GetComponentDataPtrRW(ref EventSubscriptionRegistryComponentTypeHandle);
+            EventSubscriptionRegistryComponent* EventSubscriptionRegistryPtr = chunk.GetRequiredComponentDataPtrRW(ref EventSubscriptionRegistryComponentTypeHandle);
 
             // Fill map
 

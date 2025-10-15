@@ -19,7 +19,7 @@ using EventListenerMapHeader = Unity.Collections.LowLevel.Unsafe.InlineHashMapHe
 
 namespace EvilOctane.Entities.Internal
 {
-    public static unsafe class EventSubscriptionRegistryFunctions
+    public static unsafe class EventSubscriptionRegistryAPI
     {
         public static int Alignment
         {

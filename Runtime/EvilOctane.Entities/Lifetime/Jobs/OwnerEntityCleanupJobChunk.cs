@@ -31,7 +31,7 @@ namespace EvilOctane.Entities
             Assert.IsFalse(useEnabledMask);
 
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
-            TOwnerEntityComponent* ownerEntityPtr = chunk.GetComponentDataPtrRO(ref OwnerEntityComponentTypeHandle);
+            TOwnerEntityComponent* ownerEntityPtr = (TOwnerEntityComponent*)chunk.GetRequiredComponentDataPtrRO(ref OwnerEntityComponentTypeHandle);
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {

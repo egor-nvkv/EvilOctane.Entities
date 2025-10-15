@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Unity.Collections;
 using Unity.Entities;
 using Debug = UnityEngine.Debug;
 
@@ -13,7 +12,7 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void LogFiredEventTypeNotRegistered(Entity entity, TypeIndex eventTypeIndex)
         {
-            Debug.LogError($"{(FixedString32Bytes)nameof(EventSystem)} | Event \"{TypeManager.GetTypeNameTruncated(eventTypeIndex)}\" that event firer {entity.ToFixedString()} does not declare was fired. It will not get routed.");
+            Debug.LogError($"EventSystem | Event \"{TypeManager.GetTypeNameTruncated(eventTypeIndex)}\" that event firer {entity.ToFixedString()} does not declare was fired. It will not get routed.");
         }
     }
 }

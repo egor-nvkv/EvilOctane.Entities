@@ -18,7 +18,7 @@ namespace EvilOctane.Entities
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 public static StableTypeElement Default<T>()
                 {
-                    return Create<T>(EventSubscriptionRegistryFunctions.ListenerListDefaultInitialCapacity);
+                    return Create<T>(EventSubscriptionRegistryAPI.ListenerListDefaultInitialCapacity);
                 }
 
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]

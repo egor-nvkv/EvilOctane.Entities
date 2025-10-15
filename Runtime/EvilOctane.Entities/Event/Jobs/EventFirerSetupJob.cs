@@ -68,7 +68,7 @@ namespace EvilOctane.Entities.Internal
 
             // Setup Event Listener Registry
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = CommandBuffer.SetBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage>(sortKey, entity);
-            EventSubscriptionRegistryFunctions.Create(registryStorage, ref eventTypeListenerCapacityMap);
+            EventSubscriptionRegistryAPI.Create(registryStorage, ref eventTypeListenerCapacityMap);
         }
     }
 }

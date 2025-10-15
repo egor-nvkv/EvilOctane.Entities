@@ -6,22 +6,9 @@ using Unity.Entities;
 
 namespace EvilOctane.Entities
 {
-    public static partial class EventSystem
+    public static partial class EventAPI
     {
         // Firer
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SetUpDeferredEventFirerForImmediateSubscription(EntityCommandBuffer commandBuffer, Entity eventFirerEntity)
-        {
-            ComponentTypeSet componentTypeSet = ComponentTypeSetUtility.Create<
-                // Allocated Tag
-                EventFirer.IsAliveTag,
-
-                // Listener Registry
-                EventFirer.EventSubscriptionRegistry.CommandBufferElement>();
-
-            commandBuffer.AddComponent(eventFirerEntity, componentTypeSet);
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CompactEventSubscriptionRegistry(EntityCommandBuffer commandBuffer, Entity eventFirerEntity)
@@ -48,7 +35,7 @@ namespace EvilOctane.Entities
         // Subscribe
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SubscribeToDeclaredEvents(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, Entity eventListenerEntity)
+        public static void SubscribeAuto(EntityCommandBuffer commandBuffer, Entity eventFirerEntity, Entity eventListenerEntity)
         {
             commandBuffer.AppendToBuffer(eventFirerEntity, new EventFirer.EventSubscriptionRegistry.CommandBufferElement()
             {
@@ -59,7 +46,7 @@ namespace EvilOctane.Entities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void SubscribeToDeclaredEvents(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity, Entity eventListenerEntity)
+        public static void SubscribeAuto(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity, Entity eventListenerEntity)
         {
             commandBuffer.AppendToBuffer(sortKey, eventFirerEntity, new EventFirer.EventSubscriptionRegistry.CommandBufferElement()
             {

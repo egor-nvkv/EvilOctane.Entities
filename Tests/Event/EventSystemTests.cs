@@ -205,28 +205,28 @@ namespace EvilOctane.Entities.Tests
                     // Listener 0
                     {
                         // Auto
-                        EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                        EventAPI.SubscribeAuto(commandBuffer, eventFirerEntity, eventListenerEntity0);
 
                         // Duplicate
-                        EventSystem.SubscribeToEvent<EventSingle>(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                        EventAPI.SubscribeToEvent<EventSingle>(commandBuffer, eventFirerEntity, eventListenerEntity0);
                     }
 
                     // Listener 1
                     {
                         // Auto
-                        EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+                        EventAPI.SubscribeAuto(commandBuffer, eventFirerEntity, eventListenerEntity1);
 
                         // Duplicate
-                        EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+                        EventAPI.SubscribeAuto(commandBuffer, eventFirerEntity, eventListenerEntity1);
                     }
 
                     // Listener 2
                     {
                         // Auto
-                        EventSystem.SubscribeToDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                        EventAPI.SubscribeAuto(commandBuffer, eventFirerEntity, eventListenerEntity2);
 
                         // Manual
-                        EventSystem.SubscribeToEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                        EventAPI.SubscribeToEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
                     }
                 }
             }
@@ -251,28 +251,28 @@ namespace EvilOctane.Entities.Tests
                     // Listener 0
                     {
                         // Auto
-                        EventSystem.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                        EventAPI.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity0);
 
                         // Duplicate
-                        EventSystem.UnsubscribeFromEvent<EventSingle>(commandBuffer, eventFirerEntity, eventListenerEntity0);
+                        EventAPI.UnsubscribeFromEvent<EventSingle>(commandBuffer, eventFirerEntity, eventListenerEntity0);
                     }
 
                     // Listener 1
                     {
                         // Auto
-                        EventSystem.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+                        EventAPI.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
 
                         // Duplicate
-                        EventSystem.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
+                        EventAPI.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity1);
                     }
 
                     // Listener 2
                     {
                         // Auto
-                        EventSystem.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                        EventAPI.UnsubscribeFromDeclaredEvents(commandBuffer, eventFirerEntity, eventListenerEntity2);
 
                         // Manual
-                        EventSystem.UnsubscribeFromEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
+                        EventAPI.UnsubscribeFromEvent<EventBufferElement>(commandBuffer, eventFirerEntity, eventListenerEntity2);
                     }
                 }
             }
@@ -286,7 +286,7 @@ namespace EvilOctane.Entities.Tests
 
             foreach (Entity eventFirerEntity in eventFirerEntities)
             {
-                EventSystem.CompactEventSubscriptionRegistry(commandBuffer, eventFirerEntity);
+                EventAPI.CompactEventSubscriptionRegistry(commandBuffer, eventFirerEntity);
             }
 
             commandBuffer.Playback(entityManager);
@@ -313,7 +313,7 @@ namespace EvilOctane.Entities.Tests
 
                     // Undeclared Event
                     {
-                        _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, new UndeclaredEvent());
+                        _ = EventAPI.FireEvent(commandBuffer, eventFirerEntity, new UndeclaredEvent());
 
                         if (expectErrorLog)
                         {
@@ -323,13 +323,13 @@ namespace EvilOctane.Entities.Tests
 
                     // Single Event
                     {
-                        _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent());
-                        _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent(eventId));
+                        _ = EventAPI.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent());
+                        _ = EventAPI.FireEvent(commandBuffer, eventFirerEntity, GetSingleEvent(eventId));
                     }
 
                     // Buffer Event
                     {
-                        _ = EventSystem.FireEvent(commandBuffer, eventFirerEntity, out DynamicBuffer<EventBufferElement> eventDataBuffer);
+                        _ = EventAPI.FireEvent(commandBuffer, eventFirerEntity, out DynamicBuffer<EventBufferElement> eventDataBuffer);
 
                         eventDataBuffer.ResizeUninitialized(2);
                         SetTwoBufferEventElements(eventDataBuffer.AsSpanRW(), eventId);
@@ -671,7 +671,7 @@ namespace EvilOctane.Entities.Tests
                 // Registry
 
                 DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = entityManager.GetBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage>(eventFirerEntity, isReadOnly: true);
-                Assert.IsTrue(EventSubscriptionRegistryFunctions.IsCreated(registryStorage));
+                Assert.IsTrue(EventSubscriptionRegistryAPI.IsCreated(registryStorage));
 
                 if (registryStorage.Capacity >= registryOriginalCapacity)
                 {
@@ -681,14 +681,14 @@ namespace EvilOctane.Entities.Tests
                 // Copy to temp map
 
                 UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap = new(16, Allocator.Temp);
-                EventSubscriptionRegistryFunctions.CopyTo(registryStorage, ref eventTypeListenerListMap, Allocator.Temp);
+                EventSubscriptionRegistryAPI.CopyTo(registryStorage, ref eventTypeListenerListMap, Allocator.Temp);
 
                 Assert.IsFalse(eventTypeListenerListMap.IsEmpty, "Registry keys were cleared");
 
                 foreach (KVPair<TypeIndex, EventListenerListCapacityPair> kvPair in eventTypeListenerListMap)
                 {
                     EventListenerListCapacityPair listenerList = kvPair.Value;
-                    Assert.LessOrEqual(listenerList.RequiredCapacity, EventSubscriptionRegistryFunctions.ListenerListDefaultInitialCapacity, "Listener list not trimmed");
+                    Assert.LessOrEqual(listenerList.RequiredCapacity, EventSubscriptionRegistryAPI.ListenerListDefaultInitialCapacity, "Listener list not trimmed");
                 }
             }
         }

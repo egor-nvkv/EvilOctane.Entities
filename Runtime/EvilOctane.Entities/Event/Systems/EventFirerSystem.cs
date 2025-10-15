@@ -3,6 +3,7 @@ using EvilOctane.Entities.Internal;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Jobs;
+using static Unity.Entities.SystemAPI;
 
 [assembly: RegisterGenericJobType(typeof(BufferClearJobChunk<EventFirer.EventBuffer.TypeElement>))]
 
@@ -23,14 +24,14 @@ namespace EvilOctane.Entities
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            setupQuery = SystemAPI.QueryBuilder()
+            setupQuery = QueryBuilder()
                 .WithPresent<
                     EventFirer.EventDeclarationBuffer.StableTypeElement>()
                 .WithAbsent<
                     EventFirerInternal.EventSubscriptionRegistry.Storage>()
                 .Build();
 
-            processCommandsQuery = SystemAPI.QueryBuilder()
+            processCommandsQuery = QueryBuilder()
                 .WithPresentRW<
                     EventFirerInternal.EventSubscriptionRegistry.Storage,
                     EventFirer.EventSubscriptionRegistry.CommandBufferElement>()
@@ -41,7 +42,7 @@ namespace EvilOctane.Entities
             // Required for instantiated Firers with immediate subscriptions to work
             processCommandsQuery.AddOrderVersionFilter();
 
-            routeEventsQuery = SystemAPI.QueryBuilder()
+            routeEventsQuery = QueryBuilder()
                 .WithPresentRW<
                     EventFirerInternal.EventSubscriptionRegistry.Storage>()
                 .WithPresent<
@@ -56,14 +57,14 @@ namespace EvilOctane.Entities
 
             routeEventsQuery.SetChangedVersionFilter<EventFirer.EventBuffer.EntityElement>();
 
-            clearEntityBufferQuery = SystemAPI.QueryBuilder()
+            clearEntityBufferQuery = QueryBuilder()
                 .WithPresentRW<
                     EventFirer.EventBuffer.EntityElement>()
                 .Build();
 
             clearEntityBufferQuery.SetChangedVersionFilter<EventFirer.EventBuffer.EntityElement>();
 
-            clearTypeBufferQuery = SystemAPI.QueryBuilder()
+            clearTypeBufferQuery = QueryBuilder()
                 .WithPresentRW<
                     EventFirer.EventBuffer.TypeElement>()
                 .WithPresent<
@@ -72,7 +73,7 @@ namespace EvilOctane.Entities
 
             clearTypeBufferQuery.SetChangedVersionFilter<EventFirer.EventBuffer.TypeElement>();
 
-            cleanupQuery = SystemAPI.QueryBuilder()
+            cleanupQuery = QueryBuilder()
                 .WithAny<
                     EventFirerInternal.EventSubscriptionRegistry.Storage,
                     EventFirer.EventSubscriptionRegistry.CommandBufferElement,
@@ -89,7 +90,7 @@ namespace EvilOctane.Entities
             JobHandle setupJobHandle = ScheduleSetup(ref state);
             JobHandle processCommandsJobHandle = ScheduleProcessCommands(ref state);
 
-            BeginInitializationEntityCommandBufferSystem.Singleton nextFrameCommandBufferSystem = SystemAPI.GetSingleton<BeginInitializationEntityCommandBufferSystem.Singleton>();
+            BeginInitializationEntityCommandBufferSystem.Singleton nextFrameCommandBufferSystem = GetSingleton<BeginInitializationEntityCommandBufferSystem.Singleton>();
 
             EntityCommandBuffer nextFrameCommandBuffer = nextFrameCommandBufferSystem.CreateCommandBuffer(state.WorldUnmanaged);
             EntityCommandBuffer.ParallelWriter nextFrameParallelWriter = nextFrameCommandBuffer.AsParallelWriter();
@@ -107,12 +108,12 @@ namespace EvilOctane.Entities
 
         private JobHandle ScheduleSetup(ref SystemState state)
         {
-            EntityCommandBuffer commandBuffer = SystemAPI.GetSingleton<EndInitializationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
+            EntityCommandBuffer commandBuffer = GetSingleton<EndInitializationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
 
             return new EventFirerSetupJob()
             {
-                EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
-                EventStableTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventFirer.EventDeclarationBuffer.StableTypeElement>(isReadOnly: true),
+                EntityTypeHandle = GetEntityTypeHandle(),
+                EventStableTypeBufferTypeHandle = GetBufferTypeHandle<EventFirer.EventDeclarationBuffer.StableTypeElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator,
                 CommandBuffer = commandBuffer.AsParallelWriter()
             }.ScheduleParallel(setupQuery, state.Dependency);
@@ -122,10 +123,10 @@ namespace EvilOctane.Entities
         {
             return new EventFirerProcessCommandsJob()
             {
-                SubscriptionRegistryStorageTypeHandle = SystemAPI.GetBufferTypeHandle<EventFirerInternal.EventSubscriptionRegistry.Storage>(),
-                SubscriptionRegistryCommandBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventFirer.EventSubscriptionRegistry.CommandBufferElement>(),
-                ListenerEventTypeBufferLookup = SystemAPI.GetBufferLookup<EventListener.EventDeclarationBuffer.TypeElement>(isReadOnly: true),
-                ListenerEventStableTypeBufferLookup = SystemAPI.GetBufferLookup<EventListener.EventDeclarationBuffer.StableTypeElement>(isReadOnly: true),
+                SubscriptionRegistryStorageTypeHandle = GetBufferTypeHandle<EventFirerInternal.EventSubscriptionRegistry.Storage>(),
+                SubscriptionRegistryCommandBufferTypeHandle = GetBufferTypeHandle<EventFirer.EventSubscriptionRegistry.CommandBufferElement>(),
+                ListenerEventTypeBufferLookup = GetBufferLookup<EventListener.EventDeclarationBuffer.TypeElement>(isReadOnly: true),
+                ListenerEventStableTypeBufferLookup = GetBufferLookup<EventListener.EventDeclarationBuffer.StableTypeElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator
             }.ScheduleParallel(processCommandsQuery, state.Dependency);
         }
@@ -134,13 +135,13 @@ namespace EvilOctane.Entities
         {
             return new EventFirerRouteEventsJob()
             {
-                EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
+                EntityTypeHandle = GetEntityTypeHandle(),
 
-                SubscriptionRegistryStorageTypeHandle = SystemAPI.GetBufferTypeHandle<EventFirerInternal.EventSubscriptionRegistry.Storage>(),
-                EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventFirer.EventBuffer.EntityElement>(isReadOnly: true),
-                EventTypeBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventFirer.EventBuffer.TypeElement>(isReadOnly: true),
+                SubscriptionRegistryStorageTypeHandle = GetBufferTypeHandle<EventFirerInternal.EventSubscriptionRegistry.Storage>(),
+                EventEntityBufferTypeHandle = GetBufferTypeHandle<EventFirer.EventBuffer.EntityElement>(isReadOnly: true),
+                EventTypeBufferTypeHandle = GetBufferTypeHandle<EventFirer.EventBuffer.TypeElement>(isReadOnly: true),
 
-                EventReceiveBufferLookup = SystemAPI.GetBufferLookup<EventListener.EventReceiveBuffer.Element>(),
+                EventReceiveBufferLookup = GetBufferLookup<EventListener.EventReceiveBuffer.Element>(),
 
                 TempAllocator = state.WorldUpdateAllocator,
                 CommandBuffer = commandBuffer
@@ -151,7 +152,7 @@ namespace EvilOctane.Entities
         {
             return new EventFirerClearEntityBufferJob()
             {
-                EventEntityBufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventFirer.EventBuffer.EntityElement>(),
+                EventEntityBufferTypeHandle = GetBufferTypeHandle<EventFirer.EventBuffer.EntityElement>(),
                 TempAllocator = state.WorldUpdateAllocator,
                 CommandBuffer = commandBuffer
             }.ScheduleParallel(clearEntityBufferQuery, dependsOn);
@@ -161,7 +162,7 @@ namespace EvilOctane.Entities
         {
             return new BufferClearJobChunk<EventFirer.EventBuffer.TypeElement>()
             {
-                BufferTypeHandle = SystemAPI.GetBufferTypeHandle<EventFirer.EventBuffer.TypeElement>()
+                BufferTypeHandle = GetBufferTypeHandle<EventFirer.EventBuffer.TypeElement>()
             }.ScheduleParallel(clearTypeBufferQuery, dependsOn);
         }
 
@@ -169,7 +170,7 @@ namespace EvilOctane.Entities
         {
             return new EventFirerCleanupJob()
             {
-                EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
+                EntityTypeHandle = GetEntityTypeHandle(),
                 CommandBuffer = commandBuffer
             }.ScheduleParallel(cleanupQuery, dependsOn);
         }

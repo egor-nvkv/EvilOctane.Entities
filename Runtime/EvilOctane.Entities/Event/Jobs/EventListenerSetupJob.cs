@@ -1,3 +1,5 @@
+using System;
+using System.Runtime.CompilerServices;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
@@ -6,6 +8,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
+using static EvilOctane.Entities.EventAPI;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -15,8 +18,19 @@ namespace EvilOctane.Entities.Internal
         [ReadOnly]
         public EntityTypeHandle EntityTypeHandle;
 
+        // Firer
+
         [ReadOnly]
-        public BufferTypeHandle<EventListener.EventDeclarationBuffer.StableTypeElement> EventStableTypeBufferTypeHandle;
+        public BufferLookup<EventFirer.EventDeclarationBuffer.StableTypeElement> FirerStableTypeBufferTypeHandle;
+        [ReadOnly]
+        public BufferLookup<EventFirer.EventSubscriptionRegistry.CommandBufferElement> FirerEventCommandBufferLookup;
+
+        // Listener
+
+        [ReadOnly]
+        public BufferTypeHandle<EventListener.EventDeclarationBuffer.StableTypeElement> ListenerStableTypeBufferTypeHandle;
+
+        public BufferTypeHandle<EventListener.EventSubscribeBuffer.SubscribeAutoElement> ListenerSubscribeAutoBufferTypeHandle;
 
         public AllocatorManager.AllocatorHandle TempAllocator;
         public EntityCommandBuffer.ParallelWriter CommandBuffer;
@@ -27,6 +41,23 @@ namespace EvilOctane.Entities.Internal
 
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
+            if (chunk.Has<EventListener.EventDeclarationBuffer.StableTypeElement>())
+            {
+                SetupRuntimeComponents(in chunk, unfilteredChunkIndex, entityPtr);
+            }
+            // It is unlikely that firers will be ready the same frame we set up, so "else if"
+            else if (chunk.Has<EventListener.EventSubscribeBuffer.SubscribeAutoElement>())
+            {
+                SetupSubscribeCommands(in chunk, unfilteredChunkIndex, entityPtr);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void SetupRuntimeComponents(
+            in ArchetypeChunk chunk,
+            int unfilteredChunkIndex,
+            Entity* entityPtr)
+        {
             // Remove setup component
             CommandBuffer.RemoveComponent<EventListener.EventDeclarationBuffer.StableTypeElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
 
@@ -36,7 +67,7 @@ namespace EvilOctane.Entities.Internal
 
             // Setup runtime components
 
-            BufferAccessor<EventListener.EventDeclarationBuffer.StableTypeElement> eventStableTypeBufferAccessor = chunk.GetBufferAccessorRO(ref EventStableTypeBufferTypeHandle);
+            BufferAccessor<EventListener.EventDeclarationBuffer.StableTypeElement> eventStableTypeBufferAccessor = chunk.GetBufferAccessorRO(ref ListenerStableTypeBufferTypeHandle);
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
@@ -47,6 +78,26 @@ namespace EvilOctane.Entities.Internal
                     unfilteredChunkIndex,
                     entity,
                     eventStableTypeBuffer.AsSpanRO());
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void SetupSubscribeCommands(
+            in ArchetypeChunk chunk,
+            int unfilteredChunkIndex,
+            Entity* entityPtr)
+        {
+            BufferAccessor<EventListener.EventSubscribeBuffer.SubscribeAutoElement> eventSubscribeAutoBufferAccessor = chunk.GetBufferAccessorRW(ref ListenerSubscribeAutoBufferTypeHandle);
+
+            for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
+            {
+                Entity entity = entityPtr[entityIndex];
+                DynamicBuffer<EventListener.EventSubscribeBuffer.SubscribeAutoElement> subscribeAutoBuffer = eventSubscribeAutoBufferAccessor[entityIndex];
+
+                SetupSubscribeCommands(
+                    unfilteredChunkIndex,
+                    entity,
+                    subscribeAutoBuffer);
             }
         }
 
@@ -84,6 +135,46 @@ namespace EvilOctane.Entities.Internal
                 {
                     EventTypeIndex = typeIndex
                 });
+            }
+        }
+
+        private void SetupSubscribeCommands(
+           int sortKey,
+           Entity entity,
+           DynamicBuffer<EventListener.EventSubscribeBuffer.SubscribeAutoElement> subscribeAutoBuffer)
+        {
+            for (int index = 0; index != subscribeAutoBuffer.Length;)
+            {
+                EventListener.EventSubscribeBuffer.SubscribeAutoElement subscribe = subscribeAutoBuffer[index];
+
+                if (FirerEventCommandBufferLookup.HasBuffer(subscribe.EventFirerEntity))
+                {
+                    // Ready
+                    SubscribeAuto(CommandBuffer, sortKey, subscribe.EventFirerEntity, entity);
+                    goto Remove;
+                }
+
+                if (Hint.Likely(FirerStableTypeBufferTypeHandle.HasBuffer(subscribe.EventFirerEntity)))
+                {
+                    // Not ready
+                    ++index;
+                    continue;
+                }
+                else
+                {
+                    // Invalid
+                    goto Remove;
+                }
+
+            Remove:
+                subscribeAutoBuffer.RemoveAtSwapBack(index);
+            }
+
+            // Cleanup
+
+            if (subscribeAutoBuffer.IsEmpty)
+            {
+                CommandBuffer.RemoveComponent<EventListener.EventSubscribeBuffer.SubscribeAutoElement>(sortKey, entity);
             }
         }
     }
