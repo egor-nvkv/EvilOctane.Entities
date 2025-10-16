@@ -2,6 +2,7 @@ using Unity.Assertions;
 using Unity.Burst.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using EventTypeListenerCapacityTable = EvilOctane.Collections.LowLevel.Unsafe.UnsafeSwissTable<Unity.Entities.TypeIndex, int, EvilOctane.Collections.XXH3PodHasher<Unity.Entities.TypeIndex>>;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -9,12 +10,10 @@ namespace EvilOctane.Entities.Internal
     {
         public static void DeserializeEventTypes(
             UnsafeSpan<EventFirer.EventDeclarationBuffer.StableTypeElement> eventStableTypeSpanRO,
-            ref UnsafeHashMap<TypeIndex, int> eventTypeListenerCapacityMap)
+            ref EventTypeListenerCapacityTable eventTypeListenerCapacityTable)
         {
-            Assert.IsTrue(eventTypeListenerCapacityMap.IsEmpty);
-
-            HashMapHelperRef<TypeIndex> mapHelper = eventTypeListenerCapacityMap.GetHelperRef();
-            mapHelper.EnsureCapacity(eventStableTypeSpanRO.Length, keepOldData: false);
+            Assert.IsTrue(eventTypeListenerCapacityTable.IsEmpty);
+            eventTypeListenerCapacityTable.EnsureCapacity(eventStableTypeSpanRO.Length, keepOldData: false);
 
             foreach (EventFirer.EventDeclarationBuffer.StableTypeElement eventStableType in eventStableTypeSpanRO)
             {
@@ -26,8 +25,8 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                // Register Event Type
-                _ = mapHelper.TryAddNoResize(typeIndex, eventStableType.ListenerListInitialCapacity);
+                // Register Event type
+                eventTypeListenerCapacityTable.GetOrAddNoResize(typeIndex, out _) = eventStableType.ListenerListInitialCapacity;
             }
         }
 

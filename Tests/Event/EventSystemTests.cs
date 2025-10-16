@@ -1,3 +1,4 @@
+using EvilOctane.Collections;
 using EvilOctane.Entities.Internal;
 using NUnit.Framework;
 using System;
@@ -7,6 +8,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.TestTools;
+using EventTypeListenerListTable = EvilOctane.Collections.LowLevel.Unsafe.UnsafeSwissTable<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListCapacityPair, EvilOctane.Collections.XXH3PodHasher<Unity.Entities.TypeIndex>>;
 
 namespace EvilOctane.Entities.Tests
 {
@@ -673,21 +675,16 @@ namespace EvilOctane.Entities.Tests
                 DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = entityManager.GetBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage>(eventFirerEntity, isReadOnly: true);
                 Assert.IsTrue(EventSubscriptionRegistryAPI.IsCreated(registryStorage));
 
-                if (registryStorage.Capacity >= registryOriginalCapacity)
+                // Copy to temp table
+
+                EventTypeListenerListTable eventTypeListenerListTable = new(16, Allocator.Temp);
+                EventSubscriptionRegistryAPI.CopyTo(registryStorage, ref eventTypeListenerListTable, Allocator.Temp);
+
+                Assert.IsFalse(eventTypeListenerListTable.IsEmpty, "Registry keys were cleared");
+
+                foreach (KeyValueRef<TypeIndex, EventListenerListCapacityPair> kvPair in eventTypeListenerListTable)
                 {
-                    Assert.Inconclusive("Compact is disabled while DynamicBuffer.TrimExcess crash is being investigated");
-                }
-
-                // Copy to temp map
-
-                UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap = new(16, Allocator.Temp);
-                EventSubscriptionRegistryAPI.CopyTo(registryStorage, ref eventTypeListenerListMap, Allocator.Temp);
-
-                Assert.IsFalse(eventTypeListenerListMap.IsEmpty, "Registry keys were cleared");
-
-                foreach (KVPair<TypeIndex, EventListenerListCapacityPair> kvPair in eventTypeListenerListMap)
-                {
-                    EventListenerListCapacityPair listenerList = kvPair.Value;
+                    EventListenerListCapacityPair listenerList = kvPair.ValueRef;
                     Assert.LessOrEqual(listenerList.RequiredCapacity, EventSubscriptionRegistryAPI.ListenerListDefaultInitialCapacity, "Listener list not trimmed");
                 }
             }

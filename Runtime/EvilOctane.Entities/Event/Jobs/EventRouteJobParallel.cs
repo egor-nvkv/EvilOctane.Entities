@@ -83,7 +83,7 @@ namespace EvilOctane.Entities.Internal
                 CommandBuffer.DestroyEntity(unfilteredChunkIndex, entitiesToDestroyList.AsSpan());
             }
 
-            // Clear Event Types
+            // Clear Event types
             DynamicBufferUtility.ClearAllBuffersInChunk(in chunk, ref EventTypeBufferTypeHandle);
         }
 
@@ -144,12 +144,12 @@ namespace EvilOctane.Entities.Internal
             {
                 TypeIndex eventTypeIndex = eventTypeSpanRO[eventIndex].EventTypeIndex;
 
-                // Listeners to this Event Type
+                // Listeners to this Event type
                 ref ListenerList listenerList = ref EventSubscriptionRegistryHelper.TryGetValueRef<ListenerList>(eventTypeIndex, out bool listenerListExists);
 
                 if (!listenerListExists)
                 {
-                    // No subscriptions for this Event Type
+                    // No subscriptions for this Event type
 
 #if ENABLE_PROFILER
                     ++EventSystemProfiler.EventsNotRoutedCounter.Data.Value;

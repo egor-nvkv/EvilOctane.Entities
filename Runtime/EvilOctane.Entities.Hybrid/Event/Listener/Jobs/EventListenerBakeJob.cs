@@ -15,7 +15,7 @@ namespace EvilOctane.Entities
         public EntityTypeHandle EntityTypeHandle;
 
         [ReadOnly]
-        public BufferTypeHandle<DeclaredEventTypeBufferElement> DeclaredEventTypeBufferTypeHandle;
+        public BufferTypeHandle<EventListenerDeclaredEventTypeBufferElement> EventTypeBufferTypeHandle;
 
         public AllocatorManager.AllocatorHandle TempAllocator;
         public EntityCommandBuffer.ParallelWriter CommandBuffer;
@@ -25,16 +25,16 @@ namespace EvilOctane.Entities
             Assert.IsFalse(useEnabledMask);
 
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
-            BufferAccessor<DeclaredEventTypeBufferElement> declaredEventTypeBufferAccessor = chunk.GetBufferAccessorRO(ref DeclaredEventTypeBufferTypeHandle);
+            BufferAccessor<EventListenerDeclaredEventTypeBufferElement> eventTypeBufferAccessor = chunk.GetBufferAccessorRO(ref EventTypeBufferTypeHandle);
 
             UnsafeList<TypeIndex> eventTypeList = UnsafeListExtensions2.Create<TypeIndex>(16, TempAllocator);
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
-                DynamicBuffer<DeclaredEventTypeBufferElement> declaredEventTypeBuffer = declaredEventTypeBufferAccessor[entityIndex];
+                DynamicBuffer<EventListenerDeclaredEventTypeBufferElement> eventTypeBuffer = eventTypeBufferAccessor[entityIndex];
 
                 // Get unique
-                declaredEventTypeBuffer.GetUnique(ref eventTypeList);
+                eventTypeBuffer.AsSpanRO().Reinterpret<TypeIndex>().GetUnique(ref eventTypeList);
 
                 // Create stable buffer
 
@@ -53,7 +53,7 @@ namespace EvilOctane.Entities
             }
 
             // Cleanup
-            CommandBuffer.RemoveComponent<DeclaredEventTypeBufferElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
+            CommandBuffer.RemoveComponent<EventListenerDeclaredEventTypeBufferElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
         }
     }
 }

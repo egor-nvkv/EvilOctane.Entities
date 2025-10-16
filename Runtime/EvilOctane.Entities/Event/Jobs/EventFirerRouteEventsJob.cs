@@ -58,7 +58,7 @@ namespace EvilOctane.Entities.Internal
                 }
 
                 DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
-                EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage, readOnly: true);
+                EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerTable(registryStorage, readOnly: true);
 
                 DynamicBuffer<EventFirer.EventBuffer.TypeElement> eventTypeBuffer = eventTypeBufferAccessor[entityIndex];
                 Assert.AreEqual(eventEntityBuffer.Length, eventTypeBuffer.Length);
@@ -88,7 +88,7 @@ namespace EvilOctane.Entities.Internal
 
                 if (Hint.Unlikely(!exists))
                 {
-                    // Event Type not registered
+                    // Event type not registered
 
                     EventDebugUtility.LogFiredEventTypeNotRegistered(entity, eventTypeIndex);
 
@@ -99,12 +99,12 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                // Listeners to this Event Type
+                // Listeners to this Event type
                 EventListenerListHeader* listenerList = listenerListOffset.GetList(listenerTable, firstListOffset);
 
                 if (listenerList->Length == 0)
                 {
-                    // No Listeners for this Event Type
+                    // No Listeners for this Event type
 
 #if ENABLE_PROFILER
                     ++EventSystemProfiler.EventsNotRoutedCounter.Data.Value;

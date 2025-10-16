@@ -1,3 +1,4 @@
+using EvilOctane.Collections;
 using System;
 using System.Runtime.CompilerServices;
 using Unity.Assertions;
@@ -10,6 +11,7 @@ using Unity.Entities;
 using static EvilOctane.Entities.Internal.EventDeclarationAPI;
 using static System.Runtime.CompilerServices.Unsafe;
 using EventListenerTableHeader = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTableHeader<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListOffset>;
+using EventTypeListenerListTable = EvilOctane.Collections.LowLevel.Unsafe.UnsafeSwissTable<Unity.Entities.TypeIndex, EvilOctane.Entities.Internal.EventListenerListCapacityPair, EvilOctane.Collections.XXH3PodHasher<Unity.Entities.TypeIndex>>;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -50,7 +52,7 @@ namespace EvilOctane.Entities.Internal
             BufferAccessor<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandBufferAccessor = chunk.GetBufferAccessorRW(ref SubscriptionRegistryCommandBufferTypeHandle);
 
             UnsafeList<TypeIndex> typeIndexList = new();
-            UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap = new();
+            EventTypeListenerListTable eventTypeListenerListTable = new();
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
@@ -68,7 +70,7 @@ namespace EvilOctane.Entities.Internal
                     registryStorage,
                     registryCommandBuffer,
                     ref typeIndexList,
-                    ref eventTypeListenerListMap,
+                    ref eventTypeListenerListTable,
                     clearTempMap: entityIndex != chunk.Count - 1);
             }
         }
@@ -88,7 +90,7 @@ namespace EvilOctane.Entities.Internal
 
             if (Hint.Likely(hasTypeBuffer))
             {
-                // Get Event Type buffer
+                // Get Event type buffer
 
                 listenerEventTypeSpanRO = listenerEventTypeBuffer.AsSpanRO().Reinterpret<TypeIndex>();
                 return true;
@@ -125,17 +127,17 @@ namespace EvilOctane.Entities.Internal
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private readonly UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> AllocateEventTypeListenerListMap(EventListenerTableHeader* listenerTable)
+        private readonly EventTypeListenerListTable AllocateEventTypeListenerListTable(EventListenerTableHeader* listenerTable)
         {
             int capacity = listenerTable->Count + 4;
-            return UnsafeHashMapUtility.CreateHashMap<TypeIndex, EventListenerListCapacityPair>(capacity, 8, TempAllocator);
+            return new EventTypeListenerListTable(capacity, TempAllocator);
         }
 
         private void Execute(
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
             DynamicBuffer<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandBuffer,
             ref UnsafeList<TypeIndex> typeIndexList,
-            ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
+            ref EventTypeListenerListTable eventTypeListenerListTable,
             bool clearTempMap)
         {
             UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO = registryCommandBuffer.AsSpanRO();
@@ -147,13 +149,13 @@ namespace EvilOctane.Entities.Internal
             {
                 // Copy existing data to temp map
 
-                if (!eventTypeListenerListMap.IsCreated)
+                if (!eventTypeListenerListTable.IsCreated)
                 {
-                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
-                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerTable);
+                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerTable(registryStorage);
+                    eventTypeListenerListTable = AllocateEventTypeListenerListTable(listenerTable);
                 }
 
-                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
+                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListTable, TempAllocator);
 
                 // In temp map mode
                 isInTempMapMode = true;
@@ -166,7 +168,7 @@ namespace EvilOctane.Entities.Internal
                     registryStorage,
                     ref registryCommandSpanRO,
                     ref typeIndexList,
-                    ref eventTypeListenerListMap);
+                    ref eventTypeListenerListTable);
 
                 // In temp map mode when full
                 isInTempMapMode = isFull;
@@ -180,21 +182,19 @@ namespace EvilOctane.Entities.Internal
                 ExecuteOnTempMap(
                     registryCommandSpanRO,
                     ref typeIndexList,
-                    ref eventTypeListenerListMap);
+                    ref eventTypeListenerListTable);
 
                 // Copy back
-                EventSubscriptionRegistryAPI.CopyFrom(registryStorage, ref eventTypeListenerListMap, compact: hasCompactCommand);
+                EventSubscriptionRegistryAPI.CopyFrom(registryStorage, ref eventTypeListenerListTable, compact: hasCompactCommand);
 
                 // Clear map
 
                 if (clearTempMap)
                 {
-                    UnsafeSpan<EventListenerListCapacityPair> valueSpan = eventTypeListenerListMap.GetHelperRef().GetValueSpan<EventListenerListCapacityPair>();
-
-                    for (int index = 0; index != valueSpan.Length; ++index)
+                    foreach (KeyValueRef<TypeIndex, EventListenerListCapacityPair> kvPair in eventTypeListenerListTable)
                     {
                         // Keep ptr / capacity
-                        valueSpan.ElementAt(index).Clear();
+                        kvPair.ValueRef.Clear();
                     }
                 }
             }
@@ -208,7 +208,7 @@ namespace EvilOctane.Entities.Internal
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
             ref UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO,
             ref UnsafeList<TypeIndex> typeIndexList,
-            ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap)
+            ref EventTypeListenerListTable eventTypeListenerListTable)
         {
             for (int index = 0; index != registryCommandSpanRO.Length; ++index)
             {
@@ -244,7 +244,7 @@ namespace EvilOctane.Entities.Internal
                     default:
                         isFull = !SubscribeAutoTryNoResize(
                             registryStorage,
-                            ref eventTypeListenerListMap,
+                            ref eventTypeListenerListTable,
                             registryCommand.ListenerEntity,
                             listenerDeclaredEventTypeSpanRO);
 
@@ -253,7 +253,7 @@ namespace EvilOctane.Entities.Internal
                     case EventFirer.EventSubscriptionRegistry.Command.SubscribeManual:
                         isFull = !SubscribeManualTryNoResize(
                             registryStorage,
-                            ref eventTypeListenerListMap,
+                            ref eventTypeListenerListTable,
                             registryCommand.ListenerEntity,
                             registryCommand.EventTypeIndex);
 
@@ -297,7 +297,7 @@ namespace EvilOctane.Entities.Internal
         private void ExecuteOnTempMap(
             UnsafeSpan<EventFirer.EventSubscriptionRegistry.CommandBufferElement> registryCommandSpanRO,
             ref UnsafeList<TypeIndex> typeIndexList,
-            ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap)
+            ref EventTypeListenerListTable eventTypeListenerListTable)
         {
             for (int index = 0; index != registryCommandSpanRO.Length; ++index)
             {
@@ -330,7 +330,7 @@ namespace EvilOctane.Entities.Internal
                     case EventFirer.EventSubscriptionRegistry.Command.SubscribeAuto:
                     default:
                         EventSubscriptionRegistryAPI.Subscribe(
-                            ref eventTypeListenerListMap,
+                            ref eventTypeListenerListTable,
                             registryCommand.ListenerEntity,
                             listenerDeclaredEventTypeSpanRO,
                             TempAllocator);
@@ -339,7 +339,7 @@ namespace EvilOctane.Entities.Internal
 
                     case EventFirer.EventSubscriptionRegistry.Command.SubscribeManual:
                         EventSubscriptionRegistryAPI.Subscribe(
-                            ref eventTypeListenerListMap,
+                            ref eventTypeListenerListTable,
                             registryCommand.ListenerEntity,
                             registryCommand.EventTypeIndex,
                             TempAllocator);
@@ -348,7 +348,7 @@ namespace EvilOctane.Entities.Internal
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeAuto:
                         EventSubscriptionRegistryAPI.Unsubscribe(
-                            ref eventTypeListenerListMap,
+                            ref eventTypeListenerListTable,
                             registryCommand.ListenerEntity,
                             listenerDeclaredEventTypeSpanRO);
 
@@ -356,7 +356,7 @@ namespace EvilOctane.Entities.Internal
 
                     case EventFirer.EventSubscriptionRegistry.Command.UnsubscribeManual:
                         EventSubscriptionRegistryAPI.Unsubscribe(
-                            ref eventTypeListenerListMap,
+                            ref eventTypeListenerListTable,
                             registryCommand.ListenerEntity,
                             registryCommand.EventTypeIndex);
 
@@ -368,7 +368,7 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool SubscribeAutoTryNoResize(
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
-            ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
+            ref EventTypeListenerListTable eventTypeListenerListTable,
             Entity listenerEntity,
             UnsafeSpan<TypeIndex> eventTypeIndexSpanRO)
         {
@@ -382,18 +382,18 @@ namespace EvilOctane.Entities.Internal
             {
                 // Copy existing data to temp map
 
-                if (!eventTypeListenerListMap.IsCreated)
+                if (!eventTypeListenerListTable.IsCreated)
                 {
-                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
-                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerTable);
+                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerTable(registryStorage);
+                    eventTypeListenerListTable = AllocateEventTypeListenerListTable(listenerTable);
                 }
 
-                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
+                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListTable, TempAllocator);
 
                 // Process remainder
 
                 EventSubscriptionRegistryAPI.Subscribe(
-                    ref eventTypeListenerListMap,
+                    ref eventTypeListenerListTable,
                     listenerEntity,
                     eventTypeIndexSpanRO[processedCount..],
                     TempAllocator);
@@ -407,7 +407,7 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool SubscribeManualTryNoResize(
             DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage,
-            ref UnsafeHashMap<TypeIndex, EventListenerListCapacityPair> eventTypeListenerListMap,
+            ref EventTypeListenerListTable eventTypeListenerListTable,
             Entity listenerEntity,
             TypeIndex eventTypeIndex)
         {
@@ -420,18 +420,18 @@ namespace EvilOctane.Entities.Internal
             {
                 // Copy existing data to temp map
 
-                if (!eventTypeListenerListMap.IsCreated)
+                if (!eventTypeListenerListTable.IsCreated)
                 {
-                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerMap(registryStorage);
-                    eventTypeListenerListMap = AllocateEventTypeListenerListMap(listenerTable);
+                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerTable(registryStorage);
+                    eventTypeListenerListTable = AllocateEventTypeListenerListTable(listenerTable);
                 }
 
-                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListMap, TempAllocator);
+                EventSubscriptionRegistryAPI.CopyToSkipDestroyed(registryStorage, ListenerEventTypeBufferLookup, ref eventTypeListenerListTable, TempAllocator);
 
                 // Process remainder
 
                 EventSubscriptionRegistryAPI.Subscribe(
-                    ref eventTypeListenerListMap,
+                    ref eventTypeListenerListTable,
                     listenerEntity,
                     eventTypeIndex,
                     TempAllocator);

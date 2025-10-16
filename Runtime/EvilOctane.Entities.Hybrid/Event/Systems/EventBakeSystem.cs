@@ -1,5 +1,6 @@
 using Unity.Burst;
 using Unity.Entities;
+using Unity.Jobs;
 using static Unity.Entities.SystemAPI;
 
 namespace EvilOctane.Entities
@@ -16,40 +17,38 @@ namespace EvilOctane.Entities
         {
             firerConvertToStableTypeQuery = QueryBuilder()
                 .WithAll<
-                    EventFirerTag,
-                    DeclaredEventTypeBufferElement>()
+                    EventFirerDeclaredEventTypeBufferElement>()
                 .Build();
 
             listenerConvertToStableTypeQuery = QueryBuilder()
                 .WithAll<
-                    EventListenerTag,
-                    DeclaredEventTypeBufferElement>()
+                    EventListenerDeclaredEventTypeBufferElement>()
                 .Build();
         }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            state.Dependency.Complete();
-
             EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
+            EntityCommandBuffer.ParallelWriter parallelWriter = commandBuffer.AsParallelWriter();
 
-            new EventFirerBakeJob()
+            JobHandle jobHandle = new EventFirerBakeJob()
             {
                 EntityTypeHandle = GetEntityTypeHandle(),
-                DeclaredEventTypeBufferTypeHandle = GetBufferTypeHandle<DeclaredEventTypeBufferElement>(isReadOnly: true),
+                EventTypeBufferTypeHandle = GetBufferTypeHandle<EventFirerDeclaredEventTypeBufferElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator,
-                CommandBuffer = commandBuffer.AsParallelWriter()
-            }.Run(firerConvertToStableTypeQuery);
+                CommandBuffer = parallelWriter
+            }.ScheduleParallel(firerConvertToStableTypeQuery, state.Dependency);
 
-            new EventListenerBakeJob()
+            jobHandle = new EventListenerBakeJob()
             {
                 EntityTypeHandle = GetEntityTypeHandle(),
-                DeclaredEventTypeBufferTypeHandle = GetBufferTypeHandle<DeclaredEventTypeBufferElement>(isReadOnly: true),
+                EventTypeBufferTypeHandle = GetBufferTypeHandle<EventListenerDeclaredEventTypeBufferElement>(isReadOnly: true),
                 TempAllocator = state.WorldUpdateAllocator,
-                CommandBuffer = commandBuffer.AsParallelWriter()
-            }.Run(listenerConvertToStableTypeQuery);
+                CommandBuffer = parallelWriter
+            }.ScheduleParallel(listenerConvertToStableTypeQuery, jobHandle);
 
+            jobHandle.Complete();
             commandBuffer.Playback(state.EntityManager);
         }
     }

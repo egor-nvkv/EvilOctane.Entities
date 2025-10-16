@@ -1,3 +1,4 @@
+using System;
 using Unity.Entities;
 
 namespace EvilOctane.Entities
@@ -9,14 +10,15 @@ namespace EvilOctane.Entities
         {
             Entity entity = GetEntity(TransformUsageFlags.None);
 
-            // Tag
-
-            AddComponent<EventFirerTag>(entity);
-
             // Declared Events
 
-            DynamicBuffer<DeclaredEventTypeBufferElement> typeBuffer = AddBuffer<DeclaredEventTypeBufferElement>(entity);
-            typeBuffer.CopyFrom(authoring.DeclaredEventTypes);
+            DynamicBuffer<EventFirerDeclaredEventTypeBufferElement> typeBuffer = AddBuffer<EventFirerDeclaredEventTypeBufferElement>(entity);
+
+            ReadOnlySpan<TypeIndex> declaredEventTypes = authoring.DeclaredEventTypes;
+            typeBuffer.ResizeUninitializedTrashOldData(declaredEventTypes.Length);
+
+            Span<TypeIndex> typeSpan = typeBuffer.AsSpanRW().Reinterpret<TypeIndex>();
+            declaredEventTypes.CopyTo(typeSpan);
         }
     }
 }

@@ -120,7 +120,7 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                // Register Event Type
+                // Register Event type
 
                 bool alreadyRegistered = eventTypeBuffer.AsSpanRO().Reinterpret<TypeIndex>().Contains(typeIndex);
 

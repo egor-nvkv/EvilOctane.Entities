@@ -1,5 +1,7 @@
 using System;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Entities.LowLevel.Unsafe;
 
 namespace EvilOctane.Entities
 {
@@ -10,14 +12,15 @@ namespace EvilOctane.Entities
         {
             Entity entity = GetEntity(TransformUsageFlags.None);
 
-            // Tag
-
-            AddComponent<EventListenerTag>(entity);
-
             // Declared Events
 
-            DynamicBuffer<DeclaredEventTypeBufferElement> typeBuffer = AddBuffer<DeclaredEventTypeBufferElement>(entity);
-            typeBuffer.CopyFrom(authoring.DeclaredEventTypes);
+            DynamicBuffer<EventListenerDeclaredEventTypeBufferElement> typeBuffer = AddBuffer<EventListenerDeclaredEventTypeBufferElement>(entity);
+
+            ReadOnlySpan<TypeIndex> declaredEventTypes = authoring.DeclaredEventTypes;
+            typeBuffer.ResizeUninitializedTrashOldData(declaredEventTypes.Length);
+
+            Span<TypeIndex> typeSpan = typeBuffer.AsSpanRW().Reinterpret<TypeIndex>();
+            declaredEventTypes.CopyTo(typeSpan);
 
             // Subscribe
 
@@ -30,13 +33,24 @@ namespace EvilOctane.Entities
             {
                 Entity eventFirerEntity = GetEntity(eventFirer, TransformUsageFlags.None);
 
-                if (eventFirerEntity != Entity.Null)
+                if (eventFirerEntity == Entity.Null)
                 {
-                    _ = subscribeBuffer.Add(new EventListener.EventSubscribeBuffer.SubscribeAutoElement()
-                    {
-                        EventFirerEntity = eventFirerEntity
-                    });
+                    // Null
+                    continue;
                 }
+
+                bool alreadyAdded = subscribeBuffer.AsSpanRO().Reinterpret<Entity>().Contains(eventFirerEntity);
+
+                if (alreadyAdded)
+                {
+                    // Duplicate
+                    continue;
+                }
+
+                _ = subscribeBuffer.AddNoResize(new EventListener.EventSubscribeBuffer.SubscribeAutoElement()
+                {
+                    EventFirerEntity = eventFirerEntity
+                });
             }
         }
     }
