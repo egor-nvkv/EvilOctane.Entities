@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.2] - 2025-10-20
+
+* EventSystem baking fixes
+
 ## [0.12.1] - 2025-10-17
 
 * Event firer / listener authoring updates

@@ -129,7 +129,7 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.NoInlining)]
         private readonly EventTypeListenerListTable AllocateEventTypeListenerListTable(EventListenerTableHeader* listenerTable)
         {
-            int capacity = listenerTable->Count + 4;
+            int capacity = listenerTable->Count + (listenerTable->Count / 2);
             return new EventTypeListenerListTable(capacity, TempAllocator);
         }
 

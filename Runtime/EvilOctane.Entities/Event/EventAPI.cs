@@ -24,6 +24,19 @@ namespace EvilOctane.Entities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetUpDeferredEventFirerForImmediateSubscription(EntityCommandBuffer.ParallelWriter commandBuffer, int sortKey, Entity eventFirerEntity)
+        {
+            ComponentTypeSet componentTypeSet = ComponentTypeSetUtility.Create<
+                // Allocated Tag
+                EventFirer.IsAliveTag,
+
+                // Listener Registry
+                EventFirer.EventSubscriptionRegistry.CommandBufferElement>();
+
+            commandBuffer.AddComponent(sortKey, eventFirerEntity, componentTypeSet);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CompactEventSubscriptionRegistry(EntityCommandBuffer commandBuffer, Entity eventFirerEntity)
         {
             commandBuffer.AppendToBuffer(eventFirerEntity, new EventFirer.EventSubscriptionRegistry.CommandBufferElement()

@@ -18,11 +18,13 @@ namespace EvilOctane.Entities
             firerConvertToStableTypeQuery = QueryBuilder()
                 .WithAll<
                     EventFirerDeclaredEventTypeBufferElement>()
+                .WithOptions(EntityQueryOptions.IncludePrefab)
                 .Build();
 
             listenerConvertToStableTypeQuery = QueryBuilder()
                 .WithAll<
                     EventListenerDeclaredEventTypeBufferElement>()
+                .WithOptions(EntityQueryOptions.IncludePrefab)
                 .Build();
         }
 

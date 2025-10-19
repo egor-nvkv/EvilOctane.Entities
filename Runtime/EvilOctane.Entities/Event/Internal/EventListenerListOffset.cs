@@ -15,7 +15,7 @@ namespace EvilOctane.Entities.Internal
         {
             byte* list = (byte*)listenerTable + firstListOffset + OffsetFromFirstListHeader;
 
-            CheckIsAligned(list, EventListenerList.Alignment);
+            CheckIsAligned(list, EventListenerList.BufferAlignment);
             return (EventListenerListHeader*)list;
         }
 
