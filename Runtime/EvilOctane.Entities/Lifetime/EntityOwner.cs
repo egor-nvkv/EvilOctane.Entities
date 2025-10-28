@@ -10,7 +10,7 @@ namespace EvilOctane.Entities
     public static unsafe class EntityOwner
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static UnsafeList<Entity> ExtractOwnedEntityList<T>(BufferAccessor<T> bufferAccessor, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
+        public static UnsafeList<Entity> ExtractOwnedEntityList<T>(ref BufferAccessor<T> bufferAccessor, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
             where T : unmanaged, IEntityOwnerBufferElementData
         {
             UnsafeUtility2.CheckReinterpretArgs<T, Entity>(requireExactAlignment: true);
@@ -42,7 +42,7 @@ namespace EvilOctane.Entities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static UnsafeList<Entity> ExtractAliveOwnedEntityList<TElement, TDummyComponent>(BufferAccessor<TElement> bufferAccessor, ComponentLookup<TDummyComponent> entityLookup, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
+        public static UnsafeList<Entity> ExtractAliveOwnedEntityList<TElement, TDummyComponent>(ref BufferAccessor<TElement> bufferAccessor, ref ComponentLookup<TDummyComponent> entityLookup, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
             where TElement : unmanaged, IEntityOwnerBufferElementData
             where TDummyComponent : unmanaged, IComponentData
         {

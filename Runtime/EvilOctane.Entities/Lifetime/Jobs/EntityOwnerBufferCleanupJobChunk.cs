@@ -31,7 +31,7 @@ namespace EvilOctane.Entities
             BufferAccessor<TEntityOwnerElement> entityOwnerBufferAccessor = chunk.GetBufferAccessorRW(ref EntityOwnerBufferTypeHandle);
 
             // Get Entities
-            UnsafeList<Entity> entitiesToDestroyList = EntityOwner.ExtractAliveOwnedEntityList(entityOwnerBufferAccessor, EntityLookup, TempAllocator, clearBuffers: true);
+            UnsafeList<Entity> entitiesToDestroyList = EntityOwner.ExtractAliveOwnedEntityList(ref entityOwnerBufferAccessor, ref EntityLookup, TempAllocator, clearBuffers: true);
 
             if (Hint.Likely(!entitiesToDestroyList.IsEmpty))
             {

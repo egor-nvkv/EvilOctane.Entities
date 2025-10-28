@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.3] - 2025-10-28
+
+* Added AssetLibrary
+
 ## [0.12.2] - 2025-10-20
 
 * EventSystem baking fixes
