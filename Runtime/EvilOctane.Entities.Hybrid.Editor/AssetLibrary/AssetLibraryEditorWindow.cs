@@ -38,6 +38,34 @@ namespace EvilOctane.Entities.Editor
             return true;
         }
 
+        private static void AddAssetsRecursively(List<UnityObject> assets, UnityObject asset)
+        {
+            if (IsFolder(asset, out string path))
+            {
+                // Add all in folder
+
+                if (!path.EndsWith("/"))
+                {
+                    path += "/";
+                }
+
+                string[] assetGUIDs = AssetDatabase.FindAssets("t:Object", new[] { path });
+
+                foreach (string assetGUID in assetGUIDs)
+                {
+                    UnityObject assetInFolder = AssetDatabase.LoadAssetByGUID(new GUID(assetGUID), typeof(UnityObject));
+
+                    // Append recursively
+                    AddAssetsRecursively(assets, assetInFolder);
+                }
+            }
+            else
+            {
+                // Single
+                assets.Add(asset);
+            }
+        }
+
         private static void RemoveNullAndSortAssets(List<UnityObject> assets, List<UnityObject> assetsToAdd = null)
         {
             SortedSet<UnityObject> assetSet = new(new AssetComparer());
@@ -224,30 +252,7 @@ namespace EvilOctane.Entities.Editor
             {
                 if (draggedObject)
                 {
-                    if (IsFolder(draggedObject, out string path))
-                    {
-                        // Add all in folder
-
-                        if (!path.EndsWith("/"))
-                        {
-                            path += "/";
-                        }
-
-                        string[] assetGUIDs = AssetDatabase.FindAssets("t:Object", new[] { path });
-                        List<UnityObject> assetsInFolder = new(assetGUIDs.Length);
-
-                        foreach (string assetGUID in assetGUIDs)
-                        {
-                            assetsInFolder.Add(AssetDatabase.LoadAssetByGUID(new GUID(assetGUID), typeof(UnityObject)));
-                        }
-
-                        assetsToAdd.AddRange(assetsInFolder);
-                    }
-                    else
-                    {
-                        // Single
-                        assetsToAdd.Add(draggedObject);
-                    }
+                    AddAssetsRecursively(assetsToAdd, draggedObject);
                 }
             }
 
