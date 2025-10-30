@@ -7,6 +7,6 @@ namespace EvilOctane.Entities
     public sealed partial class AssetLibrary : ScriptableObject
     {
         [SerializeField, HideInInspector]
-        internal List<Object> assets;
+        internal List<Object> assets = new();
     }
 }

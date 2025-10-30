@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.4] - 2025-10-30
+
+* Added AssetLibrary authoring
+
 ## [0.12.3] - 2025-10-28
 
 * Added AssetLibrary

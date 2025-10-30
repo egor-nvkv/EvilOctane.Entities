@@ -1,35 +1,36 @@
 using System;
+using System.Collections.Generic;
 using Unity.Entities;
-using UnityEngine;
 using UnityObject = UnityEngine.Object;
 
 namespace EvilOctane.Entities
 {
     public static partial class BakerExtensions
     {
-        public static Span<T1> DependsOnMultiple<T0, T1>(this Baker<T0> self, T1[] dependencies)
-            where T0 : Component
-            where T1 : UnityObject
+        public static ArraySegment<T> DependsOnMultiple<T>(this IBaker self, IList<T> dependencies)
+            where T : UnityObject
         {
-            int count = dependencies?.Length ?? 0;
+            if (dependencies == null)
+            {
+                return ArraySegment<T>.Empty;
+            }
 
-            T1[] resultDependencies = new T1[count];
+            int count = dependencies.Count;
+
+            T[] resultDependencies = new T[count];
             int resultCount = 0;
 
-            if (count != 0)
+            foreach (T dependency in dependencies)
             {
-                foreach (T1 dependency in dependencies)
-                {
-                    T1 resultDependency = self.DependsOn(dependency);
+                T resultDependency = self.DependsOn(dependency);
 
-                    if (resultDependency)
-                    {
-                        resultDependencies[resultCount++] = resultDependency;
-                    }
+                if (resultDependency)
+                {
+                    resultDependencies[resultCount++] = resultDependency;
                 }
             }
 
-            return new Span<T1>(resultDependencies, 0, resultCount);
+            return new ArraySegment<T>(resultDependencies, 0, resultCount);
         }
     }
 }
