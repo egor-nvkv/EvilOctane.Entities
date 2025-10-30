@@ -51,12 +51,6 @@ namespace EvilOctane.Entities
             return result;
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        internal static void LogDuplicateAssetName(ref FixedString64Bytes assetLibraryNameRO, ref AssetLibraryKey keyRO)
-        {
-            Debug.LogError($"AssetLibrary | Multiple assets in library \"{assetLibraryNameRO}\" have the same name: \"{keyRO.GetAssetName()}\"");
-        }
-
         private static bool TryFindAsset(
             ref BufferLookup<AssetLibrary.Storage> assetLibraryStorageLookupRO,
             DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer,

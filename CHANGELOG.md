@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.5] - 2025-10-31
+
+* Added AssetLibrary baking systems
+
 ## [0.12.4] - 2025-10-30
 
 * Added AssetLibrary authoring
