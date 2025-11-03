@@ -3,12 +3,50 @@ using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using static Unity.Collections.CollectionHelper2;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 using static Unity.Entities.LowLevel.Unsafe.DynamicBufferUnsafeExtensions;
 
 namespace Unity.Entities
 {
     public static unsafe partial class DynamicBufferExtensions
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void ReinterpretStorageRW<T, U>(this DynamicBuffer<T> self, out U* storage)
+            where T : unmanaged
+            where U : unmanaged
+        {
+            nint bufferSize = (nint)self.Length * sizeof(T);
+
+            if (bufferSize != 0)
+            {
+                CheckContainerIndexInRange(sizeof(U) - 1, bufferSize);
+            }
+
+            void* ptr = self.GetUnsafePtr();
+            CheckIsAligned<U>(ptr);
+
+            storage = (U*)ptr;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void ReinterpretStorageRO<T, U>(this DynamicBuffer<T> self, out U* storage)
+            where T : unmanaged
+            where U : unmanaged
+        {
+            nint bufferSize = (nint)self.Length * sizeof(T);
+
+            if (bufferSize != 0)
+            {
+                CheckContainerIndexInRange(sizeof(U) - 1, bufferSize);
+            }
+
+            void* ptr = self.GetUnsafeReadOnlyPtr();
+            CheckIsAligned<U>(ptr);
+
+            storage = (U*)ptr;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UnsafeSpan<T> AsSpanRW<T>(this DynamicBuffer<T> self)
             where T : unmanaged

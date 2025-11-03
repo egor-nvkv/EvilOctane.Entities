@@ -1,5 +1,7 @@
+using System.Runtime.CompilerServices;
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using UnityEngine;
@@ -10,41 +12,59 @@ using UnityObject = UnityEngine.Object;
 namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
-    [WithOptions(EntityQueryOptions.IncludePrefab)]
     public unsafe partial struct AssetLibraryCreateTablesJob : IJobEntity
     {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void LogDuplicateKey(RefRO<BakedEntityNameComponent> entityName, AssetLibraryKey key)
+        {
+            Debug.LogError($"AssetLibrary | Multiple assets in library \"{entityName.ValueRO.EntityName}\" have the same key: {key.ToFixedString()}");
+        }
+
         public void Execute(
             RefRO<BakedEntityNameComponent> entityName,
-            ref DynamicBuffer<AssetLibraryInternal.KeyBufferElement> keyBuffer,
-            ref DynamicBuffer<AssetLibraryInternal.AssetBufferElement> assetBuffer,
+            DynamicBuffer<AssetLibraryInternal.KeyStorage> keyStorage,
+            DynamicBuffer<AssetLibraryInternal.KeyBufferElement> keyBuffer,
+            DynamicBuffer<AssetLibraryInternal.AssetBufferElement> assetBuffer,
             ref DynamicBuffer<AssetLibrary.Storage> storage)
         {
             Assert.AreEqual(keyBuffer.Length, assetBuffer.Length);
 
-            nint totalSize = AssetLibraryTable.GetAllocationSize(keyBuffer.Length, out int capacityCeilGroupSize);
+            nint tableSize = AssetLibraryTable.GetAllocationSize(keyBuffer.Length, out int capacityCeilGroupSize);
+            nint totalSize = tableSize + keyStorage.Length;
             storage.ResizeUninitializedTrashOldData((int)totalSize);
 
-            // Initialize
-            AssetLibraryTableHeader* assetLibrary = (AssetLibraryTableHeader*)storage.GetUnsafePtr();
+            // Copy key storage
+            storage.ReinterpretStorageRW(out byte* tableAssetNameStorage);
+            tableAssetNameStorage += tableSize;
+
+            UnsafeUtility.MemCpy(tableAssetNameStorage, keyStorage.GetUnsafeReadOnlyPtr(), keyStorage.Length);
+
+            // Create table
+            storage.ReinterpretStorageRW(out AssetLibraryTableHeader* assetLibrary);
             AssetLibraryTable.Initialize(assetLibrary, capacityCeilGroupSize);
 
-            // Copy key/values
             UnsafeSpan<AssetLibraryInternal.KeyBufferElement> keySpan = keyBuffer.AsSpanRO();
             UnsafeSpan<AssetLibraryInternal.AssetBufferElement> assetSpan = assetBuffer.AsSpanRO();
 
             for (int index = 0; index != keySpan.Length; ++index)
             {
-                ref AssetLibraryKey keyRO = ref keySpan.ElementAt(index).Key;
-                ref UnityObjectRef<UnityObject> item = ref AssetLibraryTable.GetOrAddNoResize(assetLibrary, keyRO, out bool added);
+                AssetLibraryInternal.KeyBufferElement tempKey = keySpan[index];
+                ByteSpan tableAssetNameSpan = new(tableAssetNameStorage + tempKey.AssetNameOffset, tempKey.AssetNameLength);
 
-                if (added)
+                // Add to table
+                AssetLibraryKey tableKey = new(tempKey.AssetTypeHash, tableAssetNameSpan);
+                ref UnityObjectRef<UnityObject> item = ref AssetLibraryTable.GetOrAddNoResize(assetLibrary, tableKey, out bool added);
+
+                if (Hint.Likely(added))
                 {
-                    // Add
+                    // Added
                     item = assetSpan[index].Asset;
                 }
                 else
                 {
-                    Debug.LogError($"AssetLibrary | Multiple assets in library \"{entityName.ValueRO.EntityName}\" have the same name: \"{keyRO.GetAssetName()}\"");
+                    // Duplicate
+                    // This is a bug and should be handled by asset library's Scriptable Object
+                    LogDuplicateKey(entityName, tableKey);
                 }
             }
         }

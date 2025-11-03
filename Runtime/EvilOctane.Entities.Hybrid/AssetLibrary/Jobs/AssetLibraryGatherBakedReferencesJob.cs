@@ -7,8 +7,8 @@ using AssetLibraryConsumerEntityListTable = EvilOctane.Collections.LowLevel.Unsa
 namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
-    [WithOptions(EntityQueryOptions.IncludePrefab)]
-    public unsafe partial struct AssetLibraryCreateBakedReferenceTableJob : IJobEntity
+    [WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)]
+    public partial struct AssetLibraryGatherBakedReferencesJob : IJobEntity
     {
         public NativeReference<AssetLibraryConsumerEntityListTable> BakedReferenceTableRef;
 
@@ -18,16 +18,17 @@ namespace EvilOctane.Entities.Internal
             Entity entity,
             DynamicBuffer<AssetLibraryInternal.ReferenceBufferElement> referenceBuffer)
         {
-            ref AssetLibraryConsumerEntityListTable referenceTable = ref *BakedReferenceTableRef.GetUnsafePtr();
+            ref AssetLibraryConsumerEntityListTable referenceTable = ref BakedReferenceTableRef.GetRef();
+            referenceTable.EnsureSlack(referenceBuffer.Length);
 
             foreach (AssetLibraryInternal.ReferenceBufferElement reference in referenceBuffer)
             {
-                ref UnsafeList<Entity> entityList = ref referenceTable.GetOrAdd(reference.AssetLibrary, out bool added);
+                ref UnsafeList<Entity> entityList = ref referenceTable.GetOrAddNoResize(reference.AssetLibrary, out bool added);
 
                 if (added)
                 {
                     // List added
-                    entityList = new UnsafeList<Entity>(16, Allocator);
+                    entityList = UnsafeListExtensions2.Create<Entity>(8, Allocator);
                 }
                 else
                 {

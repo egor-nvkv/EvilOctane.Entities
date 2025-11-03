@@ -55,7 +55,7 @@ namespace EvilOctane.Entities.Internal
         public static nint GetFirstListenerListOffset(int listenerTableCount)
         {
             nint mapSize = EventListenerTable.GetAllocationSize(listenerTableCount, out _);
-            return Align(mapSize, EventListenerList.BufferAlignment);
+            return CollectionHelper2.Align(mapSize, EventListenerList.BufferAlignment);
         }
 
         public static void Create(DynamicBuffer<Storage> storage, ref EventTypeListenerCapacityTable eventTypeListenerCapacityTable)
@@ -89,7 +89,7 @@ namespace EvilOctane.Entities.Internal
             {
                 // Create list
 
-                offset = Align(offset, EventListenerList.BufferAlignment);
+                offset = CollectionHelper2.Align(offset, EventListenerList.BufferAlignment);
                 EventListenerListHeader* list = (EventListenerListHeader*)(storagePtr + offset);
 
                 int listenerListCapacity = math.max(kvPair.ValueRef, 1);
@@ -152,7 +152,7 @@ namespace EvilOctane.Entities.Internal
 
                 // Create list
 
-                offset = Align(offset, EventListenerList.BufferAlignment);
+                offset = CollectionHelper2.Align(offset, EventListenerList.BufferAlignment);
                 EventListenerListHeader* list = (EventListenerListHeader*)(storagePtr + offset);
 
                 int requiredCapacity = GetListRequiredCapacity(listenerListCapacityPair, compact: compact);
@@ -356,14 +356,14 @@ namespace EvilOctane.Entities.Internal
         private static nint GetRequiredAllocationSize(ref EventTypeListenerCapacityTable eventTypeListenerCapacityTable, out int actualCapacity, out nint firstListOffset)
         {
             nint mapSize = EventListenerTable.GetAllocationSize(eventTypeListenerCapacityTable.Count, out actualCapacity);
-            firstListOffset = Align(mapSize, EventListenerList.BufferAlignment);
+            firstListOffset = CollectionHelper2.Align(mapSize, EventListenerList.BufferAlignment);
 
             nint totalSize = firstListOffset;
 
             foreach (KeyValueRef<TypeIndex, int> kvPair in eventTypeListenerCapacityTable)
             {
                 nint listSize = EventListenerList.GetAllocationSize(kvPair.ValueRef);
-                totalSize = Align(totalSize, EventListenerList.BufferAlignment) + listSize;
+                totalSize = CollectionHelper2.Align(totalSize, EventListenerList.BufferAlignment) + listSize;
             }
 
             return totalSize;
@@ -373,7 +373,7 @@ namespace EvilOctane.Entities.Internal
         private static nint GetRequiredAllocationSize(ref EventTypeListenerListTable eventTypeListenerListTable, bool compact, out int actualCapacity, out nint firstListOffset)
         {
             nint mapSize = EventListenerTable.GetAllocationSize(eventTypeListenerListTable.Count, out actualCapacity);
-            firstListOffset = Align(mapSize, EventListenerList.BufferAlignment);
+            firstListOffset = CollectionHelper2.Align(mapSize, EventListenerList.BufferAlignment);
 
             nint totalSize = firstListOffset;
 
@@ -381,10 +381,10 @@ namespace EvilOctane.Entities.Internal
             {
                 int requiredCapacity = GetListRequiredCapacity(kvPair.ValueRef, compact: compact);
 
-                nint listOffset = Align(totalSize, EventListenerList.BufferAlignment);
+                nint listOffset = CollectionHelper2.Align(totalSize, EventListenerList.BufferAlignment);
                 nint listSize = EventListenerList.GetAllocationSize(requiredCapacity);
 
-                totalSize = Align(totalSize, EventListenerList.BufferAlignment) + listSize;
+                totalSize = CollectionHelper2.Align(totalSize, EventListenerList.BufferAlignment) + listSize;
             }
 
             return totalSize;

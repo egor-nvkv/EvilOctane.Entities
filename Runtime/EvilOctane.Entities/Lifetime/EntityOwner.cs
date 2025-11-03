@@ -15,7 +15,7 @@ namespace EvilOctane.Entities
         {
             UnsafeUtility2.CheckReinterpretArgs<T, Entity>(requireExactAlignment: true);
 
-            int totalElementCount = bufferAccessor.GetTotalElementCount();
+            int totalElementCount = (int)bufferAccessor.GetTotalElementCount();
 
             if (Hint.Unlikely(totalElementCount == 0))
             {
@@ -48,7 +48,7 @@ namespace EvilOctane.Entities
         {
             UnsafeUtility2.CheckReinterpretArgs<TElement, Entity>(requireExactAlignment: true);
 
-            int totalElementCount = bufferAccessor.GetTotalElementCount();
+            int totalElementCount = (int)bufferAccessor.GetTotalElementCount();
 
             if (Hint.Unlikely(totalElementCount == 0))
             {

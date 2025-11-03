@@ -1,11 +1,17 @@
 using System.Runtime.CompilerServices;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.LowLevel.Unsafe
 {
     public static unsafe partial class EntityCommandBufferExtensions
     {
-        [SupportedInEntitiesForEach]
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.DestroyEntity(NativeArray{Entity})"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
         public static void DestroyEntity(this EntityCommandBuffer self, Entity* entities, int length)
         {
             self.EnforceSingleThreadOwnership();
@@ -22,28 +28,49 @@ namespace Unity.Entities.LowLevel.Unsafe
                 containsDeferredEntities);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.DestroyEntity(NativeArray{Entity})"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
         public static void DestroyEntity(this EntityCommandBuffer self, UnsafeSpan<Entity> entities)
         {
             DestroyEntity(self, entities.Ptr, entities.Length);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddComponent{T}(NativeArray{Entity})"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
         public static void AddComponent<T>(this EntityCommandBuffer self, Entity* entities, int length)
         {
             AddComponent(self, entities, length, ComponentType.ReadWrite<T>());
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddComponent{T}(NativeArray{Entity})"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
         public static void AddComponent<T>(this EntityCommandBuffer self, UnsafeSpan<Entity> entities)
         {
             AddComponent<T>(self, entities.Ptr, entities.Length);
         }
 
-        [SupportedInEntitiesForEach]
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddComponent(NativeArray{Entity}, ComponentType)"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="componentType"></param>
         public static void AddComponent(this EntityCommandBuffer self, Entity* entities, int length, ComponentType componentType)
         {
             self.EnforceSingleThreadOwnership();
@@ -61,15 +88,26 @@ namespace Unity.Entities.LowLevel.Unsafe
                 componentType);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddComponent(NativeArray{Entity}, ComponentType)"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="componentType"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
         public static void AddComponent(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, ComponentType componentType)
         {
             AddComponent(self, entities.Ptr, entities.Length, componentType);
         }
 
-        [SupportedInEntitiesForEach]
-        public static void AddComponent(this EntityCommandBuffer self, Entity* entities, int length, ComponentTypeSet componentTypeSet)
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddComponent(NativeArray{Entity}, in ComponentTypeSet)"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="componentTypeSet"></param>
+        public static void AddComponent(this EntityCommandBuffer self, Entity* entities, int length, in ComponentTypeSet componentTypeSet)
         {
             self.EnforceSingleThreadOwnership();
             self.AssertDidNotPlayback();
@@ -83,31 +121,53 @@ namespace Unity.Entities.LowLevel.Unsafe
                 entitiesCopy,
                 length,
                 containsDeferredEntities,
-                componentTypeSet);
+                in componentTypeSet);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddComponent(NativeArray{Entity}, in ComponentTypeSet)"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="componentTypeSet"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
-        public static void AddComponent(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, ComponentTypeSet componentTypeSet)
+        public static void AddComponent(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, in ComponentTypeSet componentTypeSet)
         {
-            AddComponent(self, entities.Ptr, entities.Length, componentTypeSet);
+            AddComponent(self, entities.Ptr, entities.Length, in componentTypeSet);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.RemoveComponent{T}(NativeArray{Entity})"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
         public static void RemoveComponent<T>(this EntityCommandBuffer self, Entity* entities, int length)
         {
             RemoveComponent(self, entities, length, ComponentType.ReadWrite<T>());
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.RemoveComponent{T}(NativeArray{Entity})"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
         public static void RemoveComponent<T>(this EntityCommandBuffer self, UnsafeSpan<Entity> entities)
         {
             RemoveComponent<T>(self, entities.Ptr, entities.Length);
         }
 
-        [SupportedInEntitiesForEach]
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.RemoveComponent(NativeArray{Entity}, ComponentType)"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="componentType"></param>
         public static void RemoveComponent(this EntityCommandBuffer self, Entity* entities, int length, ComponentType componentType)
         {
             self.EnforceSingleThreadOwnership();
@@ -125,15 +185,26 @@ namespace Unity.Entities.LowLevel.Unsafe
                 componentType);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.RemoveComponent(NativeArray{Entity}, ComponentType)"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="componentType"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
         public static void RemoveComponent(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, ComponentType componentType)
         {
             RemoveComponent(self, entities.Ptr, entities.Length, componentType);
         }
 
-        [SupportedInEntitiesForEach]
-        public static void RemoveComponent(this EntityCommandBuffer self, Entity* entities, int length, ComponentTypeSet componentTypeSet)
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.RemoveComponent(NativeArray{Entity}, in ComponentTypeSet)"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="componentTypeSet"></param>
+        public static void RemoveComponent(this EntityCommandBuffer self, Entity* entities, int length, in ComponentTypeSet componentTypeSet)
         {
             self.EnforceSingleThreadOwnership();
             self.AssertDidNotPlayback();
@@ -147,14 +218,19 @@ namespace Unity.Entities.LowLevel.Unsafe
                 entitiesCopy,
                 length,
                 containsDeferredEntities,
-                componentTypeSet);
+                in componentTypeSet);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.RemoveComponent(NativeArray{Entity}, in ComponentTypeSet)"/>
+        /// </summary>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="componentTypeSet"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [SupportedInEntitiesForEach]
-        public static void RemoveComponent(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, ComponentTypeSet componentTypeSet)
+        public static void RemoveComponent(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, in ComponentTypeSet componentTypeSet)
         {
-            RemoveComponent(self, entities.Ptr, entities.Length, componentTypeSet);
+            RemoveComponent(self, entities.Ptr, entities.Length, in componentTypeSet);
         }
     }
 }

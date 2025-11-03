@@ -31,20 +31,24 @@ namespace EvilOctane.Entities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryFindAsset<T>(
+        public static bool TryFindAsset<T, S0, S1>(
             ref BufferLookup<AssetLibrary.Storage> assetLibraryStorageLookupRO,
-            DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer,
-            ByteSpan assetName,
+            DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBufferRO,
+            S0 assetDescription,
+            S1 assetName,
             out UnityObjectRef<T> assetRef,
-            bool isOptional = false)
+            bool isOptionalIfNameIsEmpty = false)
+            where S0 : unmanaged, INativeList<byte>, IUTF8Bytes
+            where S1 : unmanaged, INativeList<byte>, IUTF8Bytes
             where T : UnityObject
         {
             bool result = !TryFindAsset(
                 ref assetLibraryStorageLookupRO,
-                assetLibraryEntityBuffer,
-                GetAssetTypeHash<T>(),
-                assetName,
-                isOptional,
+                assetLibraryEntityBufferRO.AsSpanRO(),
+                assetDescription: assetDescription.AsByteSpan(),
+                assetName: assetName.AsByteSpan(),
+                assetTypeHash: GetAssetTypeHash<T>(),
+                isOptionalIfNameIsEmpty: isOptionalIfNameIsEmpty,
                 out UnityObjectRef<UnityObject> assetRefUntyped);
 
             assetRef = Reinterpret<UnityObjectRef<UnityObject>, UnityObjectRef<T>>(ref assetRefUntyped);
@@ -53,23 +57,38 @@ namespace EvilOctane.Entities
 
         private static bool TryFindAsset(
             ref BufferLookup<AssetLibrary.Storage> assetLibraryStorageLookupRO,
-            DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer,
-            ulong assetTypeHash,
+            UnsafeSpan<AssetLibrary.EntityBufferElement> assetLibraryEntitySpanRO,
+            ByteSpan assetDescription,
             ByteSpan assetName,
-            bool isOptional,
+            ulong assetTypeHash,
+            bool isOptionalIfNameIsEmpty,
             out UnityObjectRef<UnityObject> assetRef)
         {
-            foreach (AssetLibrary.EntityBufferElement assetLibraryEntity in assetLibraryEntityBuffer)
+            if (assetName.IsEmpty)
+            {
+                // Empty name
+
+                if (!isOptionalIfNameIsEmpty)
+                {
+                    // Required
+                    LogEmptyAssetName(assetDescription);
+                }
+
+                assetRef = new UnityObjectRef<UnityObject>();
+                return false;
+            }
+
+            AssetLibraryKey key = new(assetTypeHash, assetName);
+
+            foreach (AssetLibrary.EntityBufferElement assetLibraryEntity in assetLibraryEntitySpanRO)
             {
                 if (Hint.Unlikely(!assetLibraryStorageLookupRO.TryGetBuffer(assetLibraryEntity.AssetLibraryEntity, out DynamicBuffer<AssetLibrary.Storage> storage)))
                 {
-                    // No asset library
+                    // No storage
                     continue;
                 }
 
-                AssetLibraryTableHeader* assetLibrary = (AssetLibraryTableHeader*)storage.GetUnsafeReadOnlyPtr();
-
-                AssetLibraryKey key = new(assetTypeHash, assetName);
+                storage.ReinterpretStorageRO(out AssetLibraryTableHeader* assetLibrary);
                 ref UnityObjectRef<UnityObject> item = ref AssetLibraryTable.TryGet(assetLibrary, key, out bool exists);
 
                 if (exists)
@@ -81,23 +100,28 @@ namespace EvilOctane.Entities
             }
 
             // Not found
-
-            if (!isOptional)
-            {
-                LogAssetNotFound(assetName);
-            }
+            LogAssetNotFound(assetDescription, key);
 
             assetRef = new UnityObjectRef<UnityObject>();
             return false;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void LogAssetNotFound(ByteSpan assetName)
+        private static void LogEmptyAssetName(ByteSpan assetDescription)
         {
-            SkipInit(out FixedString512Bytes assetName512);
-            _ = FixedStringMethods.CopyFromTruncated(ref assetName512, assetName);
+            SkipInit(out FixedString512Bytes assetDescription512);
+            _ = FixedStringMethods.CopyFromTruncated(ref assetDescription512, assetDescription);
 
-            Debug.LogError($"AssetLibrary | Asset not found: \"{assetName512}\"");
+            Debug.LogError($"AssetLibrary | Asset \"{assetDescription512}\" is marked as required but an empty name was received.");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void LogAssetNotFound(ByteSpan assetDescription, AssetLibraryKey key)
+        {
+            SkipInit(out FixedString512Bytes assetDescription512);
+            _ = FixedStringMethods.CopyFromTruncated(ref assetDescription512, assetDescription);
+
+            Debug.LogError($"AssetLibrary | Asset \"{assetDescription512}\" {key.ToFixedString()} not found.");
         }
     }
 }

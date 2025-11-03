@@ -16,7 +16,7 @@ namespace EvilOctane.Entities.Internal
             ArraySegment<AssetLibrary> assetLibraries = this.DependsOnMultiple(authoring.assetLibraries);
             referenceBuffer.EnsureCapacityTrashOldData(assetLibraries.Count);
 
-            foreach (AssetLibrary assetLibrary in authoring.assetLibraries)
+            foreach (AssetLibrary assetLibrary in assetLibraries)
             {
                 _ = referenceBuffer.AddNoResize(new AssetLibraryInternal.ReferenceBufferElement() { AssetLibrary = assetLibrary });
             }

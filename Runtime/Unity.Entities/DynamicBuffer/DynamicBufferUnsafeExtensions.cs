@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 using static Unity.Collections.CollectionHelper;
 using static Unity.Collections.CollectionHelper2;
@@ -57,6 +58,7 @@ namespace Unity.Entities.LowLevel.Unsafe
 #endif
         }
 
+        [StructLayout(LayoutKind.Sequential)]
         internal struct DynamicBufferExposed<T>
             where T : unmanaged
         {

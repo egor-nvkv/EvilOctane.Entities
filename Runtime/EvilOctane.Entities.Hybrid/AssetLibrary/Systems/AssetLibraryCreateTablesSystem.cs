@@ -1,11 +1,10 @@
 using Unity.Burst;
 using Unity.Entities;
-using static Unity.Entities.SystemAPI;
 
 namespace EvilOctane.Entities.Internal
 {
-    [UpdateAfter(typeof(AssetLibraryPrepareEntitiesSystem))]
-    [UpdateInGroup(typeof(BakingSystemGroup), OrderFirst = true)]
+    [UpdateAfter(typeof(AssetLibraryCopyListsSystem))]
+    [UpdateInGroup(typeof(AssetLibraryBakingSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
     public partial struct AssetLibraryCreateTablesSystem : ISystem
     {
@@ -14,18 +13,7 @@ namespace EvilOctane.Entities.Internal
         {
             // Create tables
             new AssetLibraryCreateTablesJob().ScheduleParallel();
-
-            EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
-
-            // Update consumers
-            new AssetLibraryUpdateConsumersJob()
-            {
-                AssetLibraryEntityBufferLookup = GetBufferLookup<AssetLibrary.EntityBufferElement>(),
-                CommandBuffer = commandBuffer
-            }.Schedule();
-
             state.CompleteDependency();
-            commandBuffer.Playback(state.EntityManager);
         }
     }
 }

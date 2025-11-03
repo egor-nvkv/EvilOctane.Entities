@@ -1,107 +1,120 @@
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using Unity.Entities.LowLevel.Unsafe;
-using Unity.Mathematics;
-using UnityEngine;
-using static System.Runtime.CompilerServices.Unsafe;
+using Unity.Jobs;
 using static Unity.Entities.SystemAPI;
+using AssetLibraryConsumerEntityListTable = EvilOctane.Collections.LowLevel.Unsafe.UnsafeSwissTable<Unity.Entities.UnityObjectRef<EvilOctane.Entities.AssetLibrary>, Unity.Collections.LowLevel.Unsafe.UnsafeList<Unity.Entities.Entity>, EvilOctane.Collections.XXH3PodHasher<Unity.Entities.UnityObjectRef<EvilOctane.Entities.AssetLibrary>>>;
 
 namespace EvilOctane.Entities.Internal
 {
-    [UpdateAfter(typeof(AssetLibraryCreateEntitiesSystem))]
-    [UpdateInGroup(typeof(BakingSystemGroup), OrderFirst = true)]
+    [UpdateInGroup(typeof(AssetLibraryBakingSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
     public unsafe partial struct AssetLibraryPrepareEntitiesSystem : ISystem
     {
+        private EntityArchetype assetLibraryArchetype;
+
+        private EntityQuery garbageCollectQuery;
+        private EntityQuery updateRebakedTablesQuery;
+
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            int keyValueSize = sizeof(Collections.KeyValue<AssetLibraryKey, UnityObjectRef<Object>>);
-
-            if (keyValueSize != math.ceilpow2(AssetLibraryKey.Size))
+            assetLibraryArchetype = state.EntityManager.CreateArchetype(stackalloc ComponentType[]
             {
-                Debug.LogWarning($"AssetLibrary | KeyValue is not the expected size: {keyValueSize}.");
-            }
+                ComponentType.ReadWrite<BakedEntityNameComponent>(),
+                ComponentType.ReadWrite<PropagateBakedEntityNameTag>(),
+                ComponentType.ReadWrite<AssetLibrary.Storage>(),
+                ComponentType.ReadWrite<AssetLibraryInternal.KeyStorage>(),
+                ComponentType.ReadWrite<AssetLibraryInternal.KeyBufferElement>(),
+                ComponentType.ReadWrite<AssetLibraryInternal.AssetBufferElement>(),
+                ComponentType.ReadWrite<AssetLibraryInternal.Reference>(),
+                ComponentType.ReadWrite<AssetLibraryInternal.ConsumerEntityBufferElement>()
+            });
+
+            garbageCollectQuery = QueryBuilder()
+                .WithAll<
+                    AssetLibraryInternal.Reference>()
+                .WithAllRW<
+                    AssetLibraryInternal.ConsumerEntityBufferElement>()
+                .Build();
+
+            updateRebakedTablesQuery = QueryBuilder()
+                .WithAll<
+                    AssetLibraryInternal.Reference>()
+                .WithAllRW<
+                    AssetLibraryInternal.ConsumerEntityBufferElement>()
+                .Build();
         }
 
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            foreach ((
-                RefRW<BakedEntityNameComponent> bakedEntityName,
-                AssetLibraryInternal.Reference reference,
-                DynamicBuffer<AssetLibraryInternal.KeyBufferElement> keyBuffer,
-                DynamicBuffer<AssetLibraryInternal.AssetBufferElement> assetBuffer,
-                Entity entity) in
+            EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
 
-                Query<
-                    RefRW<BakedEntityNameComponent>,
-                    AssetLibraryInternal.Reference,
-                    DynamicBuffer<AssetLibraryInternal.KeyBufferElement>,
-                    DynamicBuffer<AssetLibraryInternal.AssetBufferElement>>()
-                .WithEntityAccess()
-                .WithOptions(EntityQueryOptions.IncludePrefab))
+            // Garbage collection
+            JobHandle garbageCollectJobHandle = new AssetLibraryGarbageCollectJob()
             {
-                keyBuffer.Clear();
-                assetBuffer.Clear();
+                EntityTypeHandle = GetEntityTypeHandle(),
 
-                AssetLibrary assetLibrary = reference.AssetLibrary;
+                ReferenceTypeHandle = GetComponentTypeHandle<AssetLibraryInternal.Reference>(isReadOnly: true),
+                ConsumerEntityBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.ConsumerEntityBufferElement>(),
 
-                if (!assetLibrary)
-                {
-                    // Invalid reference
-                    continue;
-                }
+                AssetLibraryEntityBufferLookup = GetBufferLookup<AssetLibrary.EntityBufferElement>(),
+                CommandBuffer = commandBuffer
+            }.Schedule(garbageCollectQuery, state.Dependency);
 
-                // Entity name
-                SkipInit(out FixedString64Bytes entityName);
-                entityName.Length = 0;
+            NativeReference<AssetLibraryConsumerEntityListTable> bakedReferenceTableRef = new(state.WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory)
+            {
+                Value = new AssetLibraryConsumerEntityListTable(state.WorldUpdateAllocator)
+            };
 
-                _ = entityName.CopyFromTruncated(assetLibrary.name);
+            // Gather baked references
+            JobHandle gatherBakedReferencesJobHandle = new AssetLibraryGatherBakedReferencesJob()
+            {
+                BakedReferenceTableRef = bakedReferenceTableRef,
+                Allocator = state.WorldUpdateAllocator
+            }.Schedule(state.Dependency);
 
-                state.EntityManager.SetName(entity, entityName);
-                bakedEntityName.ValueRW.EntityName = entityName;
+            // Sync point
+            state.Dependency = JobHandle.CombineDependencies(garbageCollectJobHandle, gatherBakedReferencesJobHandle);
+            state.CompleteDependency();
 
-                if (assetLibrary.assets == null)
-                {
-                    // No assets
-                    continue;
-                }
+            EntityCommandBuffer.ParallelWriter parallelWriter = commandBuffer.AsParallelWriter();
 
-                // Assets
-                int assetCount = assetLibrary.assets.Count;
+            JobHandle updateRebakedJobHandle = new AssetLibraryUpdateRebakedJob()
+            {
+                EntityTypeHandle = GetEntityTypeHandle(),
 
-                keyBuffer.EnsureCapacityTrashOldData(assetCount);
-                assetBuffer.EnsureCapacityTrashOldData(assetCount);
+                ReferenceTypeHandle = GetComponentTypeHandle<AssetLibraryInternal.Reference>(isReadOnly: true),
+                ConsumerEntityBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.ConsumerEntityBufferElement>(),
 
-                foreach (Object asset in assetLibrary.assets)
-                {
-                    if (!asset)
-                    {
-                        // Invalid asset
-                        continue;
-                    }
+                BakedReferenceTableRef = bakedReferenceTableRef,
+                CommandBuffer = parallelWriter
+            }.ScheduleParallel(updateRebakedTablesQuery, state.Dependency);
 
-                    // Key
+            JobHandle createEntitiesJobHandle = new AssetLibraryCreateEntitiesJob()
+            {
+                BakedReferenceTableRef = bakedReferenceTableRef,
+                CommandBuffer = parallelWriter,
+                AssetLibraryArchetype = assetLibraryArchetype
+            }.Schedule(state.Dependency);
 
-                    int oldLength = keyBuffer.Length;
-                    keyBuffer.SetLengthNoResize(oldLength + 1);
+            // Sync point
+            state.Dependency = JobHandle.CombineDependencies(updateRebakedJobHandle, createEntitiesJobHandle);
+            state.CompleteDependency();
+            commandBuffer.Playback(state.EntityManager);
 
-                    ref AssetLibraryInternal.KeyBufferElement key = ref keyBuffer.ElementAt(oldLength);
+            commandBuffer = new(state.WorldUpdateAllocator);
 
-                    key = new AssetLibraryInternal.KeyBufferElement()
-                    {
-                        Key = new AssetLibraryKey(asset)
-                    };
+            // Update consumers
+            new AssetLibraryUpdateConsumersJob()
+            {
+                AssetLibraryEntityBufferLookup = GetBufferLookup<AssetLibrary.EntityBufferElement>(),
+                CommandBuffer = commandBuffer
+            }.Schedule();
 
-                    // Value
-                    _ = assetBuffer.AddNoResize(new AssetLibraryInternal.AssetBufferElement()
-                    {
-                        Asset = asset
-                    });
-                }
-            }
+            state.CompleteDependency();
+            commandBuffer.Playback(state.EntityManager);
         }
     }
 }

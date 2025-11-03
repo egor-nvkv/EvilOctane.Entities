@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Unity.Entities;
 using UnityEngine;
 
@@ -13,9 +14,19 @@ namespace EvilOctane.Entities.Internal
 
         [TemporaryBakingType]
         [InternalBufferCapacity(0)]
+        [StructLayout(LayoutKind.Sequential, Size = 1)]
+        public struct KeyStorage : IBufferElementData
+        {
+            public byte RawByte;
+        }
+
+        [TemporaryBakingType]
+        [InternalBufferCapacity(0)]
         public struct KeyBufferElement : IBufferElementData
         {
-            public AssetLibraryKey Key;
+            public ulong AssetTypeHash;
+            public nint AssetNameOffset;
+            public int AssetNameLength;
         }
 
         [BakingType] // Not Temporary to keep refs alive

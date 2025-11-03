@@ -30,6 +30,11 @@ namespace Unity.Entities
             return true;
         }
 
+        /// <summary>
+        /// <inheritdoc cref="TypeInfo.DebugTypeName"/>
+        /// </summary>
+        /// <param name="stableTypeHash"></param>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static FixedString128Bytes StableTypeHashToDebugTypeName(ulong stableTypeHash)
         {
@@ -39,8 +44,7 @@ namespace Unity.Entities
 
             if (typeIndex != TypeIndex.Null)
             {
-                result.Length = 0;
-                _ = FixedStringMethods.CopyFromTruncated(ref result, GetTypeInfo(typeIndex).DebugTypeName);
+                _ = result.CopyFromTruncated(GetTypeInfo(typeIndex).DebugTypeName);
             }
             else
             {
@@ -57,13 +61,16 @@ namespace Unity.Entities
             return result;
         }
 
+        /// <summary>
+        /// <inheritdoc cref="TypeInfo.DebugTypeName"/>
+        /// </summary>
+        /// <param name="typeIndex"></param>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static FixedString128Bytes GetTypeNameTruncated(TypeIndex typeIndex)
         {
             SkipInit(out FixedString128Bytes typeName);
-            typeName.Length = 0;
-
-            _ = FixedStringMethods.CopyFromTruncated(ref typeName, GetTypeInfo(typeIndex).DebugTypeName);
+            _ = typeName.CopyFromTruncated(GetTypeInfo(typeIndex).DebugTypeName);
             return typeName;
         }
     }

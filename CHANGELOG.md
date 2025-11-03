@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.13.0] - 2025-11-03
+
+* AssetLibrary systems/jobs added
+
 ## [0.12.5] - 2025-10-31
 
 * Added AssetLibrary baking systems

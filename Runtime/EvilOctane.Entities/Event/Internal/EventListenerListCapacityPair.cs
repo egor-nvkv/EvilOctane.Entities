@@ -22,7 +22,8 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EventListenerListCapacityPair(int capacity, int requiredCapacity, AllocatorManager.AllocatorHandle allocator)
         {
-            Ptr = MemoryExposed.AllocateList<Entity>(capacity, allocator, out Capacity);
+            Ptr = MemoryExposed.AllocateList<Entity>(capacity, allocator, out nint capacityNint);
+            Capacity = (int)capacityNint;
             Length = 0;
             RequiredCapacity = requiredCapacity;
         }

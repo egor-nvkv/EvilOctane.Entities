@@ -6,7 +6,6 @@ using Unity.Entities;
 namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
-    [WithOptions(EntityQueryOptions.IncludePrefab)]
     public partial struct AssetLibraryUpdateConsumersJob : IJobEntity
     {
         public BufferLookup<AssetLibrary.EntityBufferElement> AssetLibraryEntityBufferLookup;
