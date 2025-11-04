@@ -151,7 +151,7 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListTable.IsCreated)
                 {
-                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerTable(registryStorage);
+                    registryStorage.ReinterpretStorageRW(out EventListenerTableHeader* listenerTable);
                     eventTypeListenerListTable = AllocateEventTypeListenerListTable(listenerTable);
                 }
 
@@ -384,7 +384,7 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListTable.IsCreated)
                 {
-                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerTable(registryStorage);
+                    registryStorage.ReinterpretStorageRW(out EventListenerTableHeader* listenerTable);
                     eventTypeListenerListTable = AllocateEventTypeListenerListTable(listenerTable);
                 }
 
@@ -422,7 +422,7 @@ namespace EvilOctane.Entities.Internal
 
                 if (!eventTypeListenerListTable.IsCreated)
                 {
-                    EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerTable(registryStorage);
+                    registryStorage.ReinterpretStorageRW(out EventListenerTableHeader* listenerTable);
                     eventTypeListenerListTable = AllocateEventTypeListenerListTable(listenerTable);
                 }
 

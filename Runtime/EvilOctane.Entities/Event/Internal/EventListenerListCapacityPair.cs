@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using static Unity.Collections.CollectionHelper2;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -66,14 +67,14 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddNoResize(Entity listenerEntity)
         {
-            CollectionHelper2.CheckAddNoResizeHasEnoughCapacity(Length, Capacity, 1);
+            CheckAddNoResizeHasEnoughCapacity(Length, Capacity, 1);
             Ptr[Length++] = listenerEntity;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddRangeNoResize(UnsafeSpan<Entity> span)
         {
-            CollectionHelper2.CheckAddNoResizeHasEnoughCapacity(Length, Capacity, span.Length);
+            CheckAddNoResizeHasEnoughCapacity(Length, Capacity, span.Length);
 
             int oldLength = Length;
             Length += span.Length;
@@ -84,7 +85,7 @@ namespace EvilOctane.Entities.Internal
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAtSwapBack(int index)
         {
-            CollectionHelper2.CheckContainerIndexInRange(index, Length);
+            CheckContainerIndexInRange(index, Length);
 
             Ptr[index] = Ptr[Length - 1];
             --Length;

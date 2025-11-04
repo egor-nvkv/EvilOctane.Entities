@@ -671,12 +671,9 @@ namespace EvilOctane.Entities.Tests
                 int registryOriginalCapacity = registryCapacityArray[firerIndex];
 
                 // Registry
-
                 DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = entityManager.GetBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage>(eventFirerEntity, isReadOnly: true);
-                Assert.IsTrue(EventSubscriptionRegistryAPI.IsCreated(registryStorage));
 
                 // Copy to temp table
-
                 EventTypeListenerListTable eventTypeListenerListTable = new(16, Allocator.Temp);
                 EventSubscriptionRegistryAPI.CopyTo(registryStorage, ref eventTypeListenerListTable, Allocator.Temp);
 

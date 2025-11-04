@@ -58,7 +58,7 @@ namespace EvilOctane.Entities.Internal
                 }
 
                 DynamicBuffer<EventFirerInternal.EventSubscriptionRegistry.Storage> registryStorage = registryStorageAccessor[entityIndex];
-                EventListenerTableHeader* listenerTable = EventSubscriptionRegistryAPI.GetListenerTable(registryStorage, readOnly: true);
+                registryStorage.ReinterpretStorageRO(out EventListenerTableHeader* listenerTable);
 
                 DynamicBuffer<EventFirer.EventBuffer.TypeElement> eventTypeBuffer = eventTypeBufferAccessor[entityIndex];
                 Assert.AreEqual(eventEntityBuffer.Length, eventTypeBuffer.Length);

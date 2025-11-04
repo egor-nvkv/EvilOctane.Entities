@@ -5,14 +5,14 @@ namespace Unity.Entities
     public static partial class BufferAccessorExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static uint GetTotalElementCount<T>(this BufferAccessor<T> self)
+        public static nint GetTotalElementCount<T>(this BufferAccessor<T> self)
             where T : unmanaged, IBufferElementData
         {
-            uint totalElementCount = 0;
+            nint totalElementCount = 0;
 
             for (int index = 0; index != self.Length; ++index)
             {
-                totalElementCount += (uint)self[index].Length;
+                totalElementCount += self[index].Length;
             }
 
             return totalElementCount;

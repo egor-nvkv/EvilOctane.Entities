@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.13.1] - 2025-11-04
+
+* EventSystem minor fixes
+
 ## [0.13.0] - 2025-11-03
 
 * AssetLibrary systems/jobs added
