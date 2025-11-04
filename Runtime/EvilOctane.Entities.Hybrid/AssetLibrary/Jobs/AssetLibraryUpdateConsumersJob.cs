@@ -1,5 +1,8 @@
+using EvilOctane.Collections;
+using EvilOctane.Collections.LowLevel.Unsafe;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 
@@ -10,12 +13,17 @@ namespace EvilOctane.Entities.Internal
     {
         public BufferLookup<AssetLibrary.EntityBufferElement> AssetLibraryEntityBufferLookup;
 
+        public NativeReference<UnsafeSwissSet<Entity, XXH3PodHasher<Entity>>> AssetLibraryEntityBufferAddedSetRef;
+
         public EntityCommandBuffer CommandBuffer;
 
         public void Execute(
             Entity entity,
             DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer)
         {
+            ref UnsafeSwissSet<Entity, XXH3PodHasher<Entity>> bufferAddedSet = ref AssetLibraryEntityBufferAddedSetRef.GetRef();
+            bufferAddedSet.EnsureSlack(consumerEntityBuffer.Length);
+
             foreach (AssetLibraryInternal.ConsumerEntityBufferElement consumerEntity in consumerEntityBuffer)
             {
                 bool bufferExists = AssetLibraryEntityBufferLookup.TryGetBuffer(consumerEntity.ConsumerEntity, out DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer, out bool entityExists);
@@ -26,6 +34,8 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
+                AssetLibrary.EntityBufferElement assetLibraryEntity = new() { AssetLibraryEntity = entity };
+
                 if (bufferExists)
                 {
                     // Asset library buffer exists
@@ -33,16 +43,26 @@ namespace EvilOctane.Entities.Internal
                     if (!assetLibraryEntityBuffer.AsSpanRO().Reinterpret<Entity>().Contains(entity))
                     {
                         // Add unique
-                        _ = assetLibraryEntityBuffer.Add(new AssetLibrary.EntityBufferElement() { AssetLibraryEntity = entity });
+                        _ = assetLibraryEntityBuffer.Add(assetLibraryEntity);
                     }
                 }
                 else
                 {
-                    // Create asset library buffer
-                    assetLibraryEntityBuffer = CommandBuffer.AddBuffer<AssetLibrary.EntityBufferElement>(consumerEntity.ConsumerEntity);
+                    bool createBuffer = bufferAddedSet.AddNoResize(consumerEntity.ConsumerEntity);
 
-                    assetLibraryEntityBuffer.ResizeUninitializedTrashOldData(1);
-                    assetLibraryEntityBuffer[0] = new AssetLibrary.EntityBufferElement() { AssetLibraryEntity = entity };
+                    if (createBuffer)
+                    {
+                        // Create asset library buffer
+                        assetLibraryEntityBuffer = CommandBuffer.AddBuffer<AssetLibrary.EntityBufferElement>(consumerEntity.ConsumerEntity);
+
+                        assetLibraryEntityBuffer.ResizeUninitializedTrashOldData(1);
+                        assetLibraryEntityBuffer[0] = assetLibraryEntity;
+                    }
+                    else
+                    {
+                        // Asset library buffer created                    
+                        CommandBuffer.AppendToBuffer(consumerEntity.ConsumerEntity, assetLibraryEntity);
+                    }
                 }
             }
         }

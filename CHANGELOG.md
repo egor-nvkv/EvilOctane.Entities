@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.13.2] - 2025-11-05
+
+* AssetLibrary fixes
+
 ## [0.13.1] - 2025-11-04
 
 * EventSystem minor fixes

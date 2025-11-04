@@ -1,3 +1,5 @@
+using EvilOctane.Collections;
+using EvilOctane.Collections.LowLevel.Unsafe;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -81,16 +83,21 @@ namespace EvilOctane.Entities.Internal
 
             EntityCommandBuffer.ParallelWriter parallelWriter = commandBuffer.AsParallelWriter();
 
-            JobHandle updateRebakedJobHandle = new AssetLibraryUpdateRebakedJob()
+            JobHandle updateRebakedJobHandle = new();
+
+            if (!bakedReferenceTableRef.Value.IsEmpty)
             {
-                EntityTypeHandle = GetEntityTypeHandle(),
+                updateRebakedJobHandle = new AssetLibraryUpdateRebakedJob()
+                {
+                    EntityTypeHandle = GetEntityTypeHandle(),
 
-                ReferenceTypeHandle = GetComponentTypeHandle<AssetLibraryInternal.Reference>(isReadOnly: true),
-                ConsumerEntityBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.ConsumerEntityBufferElement>(),
+                    ReferenceTypeHandle = GetComponentTypeHandle<AssetLibraryInternal.Reference>(isReadOnly: true),
+                    ConsumerEntityBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.ConsumerEntityBufferElement>(),
 
-                BakedReferenceTableRef = bakedReferenceTableRef,
-                CommandBuffer = parallelWriter
-            }.ScheduleParallel(updateRebakedTablesQuery, state.Dependency);
+                    BakedReferenceTableRef = bakedReferenceTableRef,
+                    CommandBuffer = parallelWriter
+                }.ScheduleParallel(updateRebakedTablesQuery, state.Dependency);
+            }
 
             JobHandle createEntitiesJobHandle = new AssetLibraryCreateEntitiesJob()
             {
@@ -110,6 +117,10 @@ namespace EvilOctane.Entities.Internal
             new AssetLibraryUpdateConsumersJob()
             {
                 AssetLibraryEntityBufferLookup = GetBufferLookup<AssetLibrary.EntityBufferElement>(),
+                AssetLibraryEntityBufferAddedSetRef = new NativeReference<UnsafeSwissSet<Entity, XXH3PodHasher<Entity>>>(state.WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory)
+                {
+                    Value = new UnsafeSwissSet<Entity, XXH3PodHasher<Entity>>(state.WorldUpdateAllocator)
+                },
                 CommandBuffer = commandBuffer
             }.Schedule();
 
