@@ -1,10 +1,9 @@
-using System.Runtime.CompilerServices;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using UnityEngine;
+using static EvilOctane.Entities.AssetLibraryAPI;
 using AssetLibraryTable = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTable<EvilOctane.Entities.Internal.AssetLibraryKey, Unity.Entities.UnityObjectRef<UnityEngine.Object>, EvilOctane.Entities.Internal.AssetLibraryKeyHasher>;
 using AssetLibraryTableHeader = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTableHeader<EvilOctane.Entities.Internal.AssetLibraryKey, Unity.Entities.UnityObjectRef<UnityEngine.Object>>;
 using UnityObject = UnityEngine.Object;
@@ -14,12 +13,6 @@ namespace EvilOctane.Entities.Internal
     [BurstCompile]
     public unsafe partial struct AssetLibraryCreateTablesJob : IJobEntity
     {
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void LogDuplicateKey(RefRO<BakedEntityNameComponent> entityName, AssetLibraryKey key)
-        {
-            Debug.LogError($"AssetLibrary | Multiple assets in library \"{entityName.ValueRO.EntityName}\" have the same key: {key.ToFixedString()}");
-        }
-
         public void Execute(
             RefRO<BakedEntityNameComponent> entityName,
             DynamicBuffer<AssetLibraryInternal.KeyStorage> keyStorage,
@@ -53,18 +46,18 @@ namespace EvilOctane.Entities.Internal
 
                 // Add to table
                 AssetLibraryKey tableKey = new(tempKey.AssetTypeHash, tableAssetNameSpan);
-                ref UnityObjectRef<UnityObject> item = ref AssetLibraryTable.GetOrAddNoResize(assetLibrary, tableKey, out bool added);
+                Ref<UnityObjectRef<UnityObject>> item = AssetLibraryTable.GetOrAddNoResize(assetLibrary, tableKey, out bool added);
 
                 if (Hint.Likely(added))
                 {
                     // Added
-                    item = assetSpan[index].Asset;
+                    item.RefRW = assetSpan[index].Asset;
                 }
                 else
                 {
                     // Duplicate
                     // This is a bug and should be handled by asset library's Scriptable Object
-                    LogDuplicateKey(entityName, tableKey);
+                    LogDuplicateAsset(entityName, tableKey);
                 }
             }
         }

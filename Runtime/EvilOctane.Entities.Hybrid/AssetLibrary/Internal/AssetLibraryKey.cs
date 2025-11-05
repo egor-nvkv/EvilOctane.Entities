@@ -1,8 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using static System.Runtime.CompilerServices.Unsafe;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -32,14 +34,18 @@ namespace EvilOctane.Entities.Internal
             return ToFixedString().ToString();
         }
 
+        [SkipLocalsInit]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly FixedString512Bytes ToFixedString()
         {
-            FixedString512Bytes result = "(TypeHash=";
+            SkipInit(out FixedString512Bytes result);
+
+            _ = result.Append((FixedString32Bytes)"(TypeHash=");
             _ = result.Append(AssetTypeHash);
             _ = result.Append((FixedString32Bytes)", Name=");
-            _ = result.Append(AssetName);
+            result.AppendTruncateUnchecked(AssetName);
             _ = result.AppendRawByte((byte)')');
+
             return result;
         }
     }

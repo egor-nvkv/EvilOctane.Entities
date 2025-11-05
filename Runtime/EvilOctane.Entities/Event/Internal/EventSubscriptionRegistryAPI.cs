@@ -81,7 +81,7 @@ namespace EvilOctane.Entities.Internal
                 // Register list
 
                 nint listOffset = offset - firstListOffset;
-                EventListenerTable.AddNoResize(listenerTable, kvPair.KeyRefRO) = listOffset;
+                EventListenerTable.AddNoResize(listenerTable, kvPair.KeyRefRO).RefRW = listOffset;
 
                 offset += EventListenerList.GetAllocationSize(listenerListCapacity);
             }
@@ -148,7 +148,7 @@ namespace EvilOctane.Entities.Internal
                 // Register list
 
                 nint listOffset = offset - firstListOffset;
-                EventListenerTable.AddNoResize(listenerTable, kvPair.KeyRefRO) = listOffset;
+                EventListenerTable.AddNoResize(listenerTable, kvPair.KeyRefRO).RefRW = listOffset;
 
                 offset += EventListenerList.GetAllocationSize(requiredCapacity);
             }
@@ -156,7 +156,7 @@ namespace EvilOctane.Entities.Internal
 
         public static void Subscribe(ref EventTypeListenerListTable eventTypeListenerListTable, Entity listenerEntity, TypeIndex eventTypeIndex, AllocatorManager.AllocatorHandle tempAllocator)
         {
-            ref EventListenerListCapacityPair listenerListCapacityPair = ref eventTypeListenerListTable.TryGet(eventTypeIndex, out bool exists);
+            Ref<EventListenerListCapacityPair> listenerListCapacityPair = eventTypeListenerListTable.TryGet(eventTypeIndex, out bool exists);
 
             if (!exists)
             {
@@ -164,9 +164,9 @@ namespace EvilOctane.Entities.Internal
                 return;
             }
 
-            if (listenerListCapacityPair.IsCreated)
+            if (listenerListCapacityPair.RefRW.IsCreated)
             {
-                bool alreadySubscribed = listenerListCapacityPair.AsSpan().Contains(listenerEntity);
+                bool alreadySubscribed = listenerListCapacityPair.RefRW.AsSpan().Contains(listenerEntity);
 
                 if (Hint.Unlikely(alreadySubscribed))
                 {
@@ -174,16 +174,16 @@ namespace EvilOctane.Entities.Internal
                     return;
                 }
 
-                listenerListCapacityPair.EnsureSlack(4, tempAllocator);
+                listenerListCapacityPair.RefRW.EnsureSlack(4, tempAllocator);
             }
             else
             {
                 // Allocate
-                int capacity = listenerListCapacityPair.RequiredCapacity;
-                listenerListCapacityPair = new EventListenerListCapacityPair(capacity, capacity, tempAllocator);
+                int capacity = listenerListCapacityPair.RefRW.RequiredCapacity;
+                listenerListCapacityPair.RefRW = new EventListenerListCapacityPair(capacity, capacity, tempAllocator);
             }
 
-            listenerListCapacityPair.AddNoResize(listenerEntity);
+            listenerListCapacityPair.RefRW.AddNoResize(listenerEntity);
         }
 
         public static void Subscribe(ref EventTypeListenerListTable eventTypeListenerListTable, Entity listenerEntity, UnsafeSpan<TypeIndex> eventTypeIndexSpanRO, AllocatorManager.AllocatorHandle tempAllocator)
@@ -197,7 +197,7 @@ namespace EvilOctane.Entities.Internal
         public static bool TrySubscribeNoResize(DynamicBuffer<Storage> storage, Entity listenerEntity, TypeIndex eventTypeIndex)
         {
             storage.ReinterpretStorageRW(out EventListenerTableHeader* listenerTable);
-            ref EventListenerListOffset listOffset = ref EventListenerTable.TryGet(listenerTable, eventTypeIndex, out bool exists);
+            Ref<EventListenerListOffset> listOffset = EventListenerTable.TryGet(listenerTable, eventTypeIndex, out bool exists);
 
             if (!exists)
             {
@@ -206,7 +206,7 @@ namespace EvilOctane.Entities.Internal
             }
 
             nint firstListOffset = GetFirstListenerListOffset(listenerTable->Count);
-            EventListenerListHeader* list = listOffset.GetList(listenerTable, firstListOffset);
+            EventListenerListHeader* list = listOffset.RefRW.GetList(listenerTable, firstListOffset);
 
             bool alreadySubscribed = EventListenerList.AsSpan(list).Contains(listenerEntity);
 
@@ -249,7 +249,7 @@ namespace EvilOctane.Entities.Internal
         public static void Unsubscribe(DynamicBuffer<Storage> storage, Entity listenerEntity, TypeIndex eventTypeIndex)
         {
             storage.ReinterpretStorageRW(out EventListenerTableHeader* listenerTable);
-            ref EventListenerListOffset listOffset = ref EventListenerTable.TryGet(listenerTable, eventTypeIndex, out bool exists);
+            Ref<EventListenerListOffset> listOffset = EventListenerTable.TryGet(listenerTable, eventTypeIndex, out bool exists);
 
             if (!exists)
             {
@@ -258,7 +258,7 @@ namespace EvilOctane.Entities.Internal
             }
 
             nint firstListOffset = GetFirstListenerListOffset(listenerTable->Count);
-            EventListenerListHeader* list = listOffset.GetList(listenerTable, firstListOffset);
+            EventListenerListHeader* list = listOffset.RefRW.GetList(listenerTable, firstListOffset);
 
             int index = EventListenerList.AsSpan(list).IndexOf(listenerEntity);
 
@@ -281,7 +281,7 @@ namespace EvilOctane.Entities.Internal
 
         public static void Unsubscribe(ref EventTypeListenerListTable eventTypeListenerListTable, Entity listenerEntity, TypeIndex eventTypeIndex)
         {
-            ref EventListenerListCapacityPair listenerListCapacityPair = ref eventTypeListenerListTable.TryGet(eventTypeIndex, out bool exists);
+            Ref<EventListenerListCapacityPair> listenerListCapacityPair = eventTypeListenerListTable.TryGet(eventTypeIndex, out bool exists);
 
             if (!exists)
             {
@@ -289,7 +289,7 @@ namespace EvilOctane.Entities.Internal
                 return;
             }
 
-            int index = listenerListCapacityPair.AsSpan().IndexOf(listenerEntity);
+            int index = listenerListCapacityPair.RefRW.AsSpan().IndexOf(listenerEntity);
 
             if (index < 0)
             {
@@ -297,7 +297,7 @@ namespace EvilOctane.Entities.Internal
                 return;
             }
 
-            listenerListCapacityPair.RemoveAtSwapBack(index);
+            listenerListCapacityPair.RefRW.RemoveAtSwapBack(index);
         }
 
         public static void Unsubscribe(ref EventTypeListenerListTable eventTypeListenerListTable, Entity listenerEntity, UnsafeSpan<TypeIndex> eventTypeIndexSpanRO)
@@ -376,7 +376,7 @@ namespace EvilOctane.Entities.Internal
                 KeyValueRef<TypeIndex, EventListenerListOffset> kvPair = enumerator.Current;
                 EventListenerListHeader* list = kvPair.ValueRef.GetList(listenerTable, firstListOffset);
 
-                ref EventListenerListCapacityPair listenerListCapacityPair = ref eventTypeListenerListTable.GetOrAddNoResize(kvPair.KeyRefRO, out bool added);
+                Ref<EventListenerListCapacityPair> listenerListCapacityPair = eventTypeListenerListTable.GetOrAddNoResize(kvPair.KeyRefRO, out bool added);
 
                 if (added)
                 {
@@ -386,7 +386,7 @@ namespace EvilOctane.Entities.Internal
                     {
                         // Empty
 
-                        listenerListCapacityPair = new EventListenerListCapacityPair()
+                        listenerListCapacityPair.RefRW = new EventListenerListCapacityPair()
                         {
                             // Keep original capacity
                             RequiredCapacity = list->Capacity
@@ -402,15 +402,15 @@ namespace EvilOctane.Entities.Internal
                 }
                 else
                 {
-                    if (listenerListCapacityPair.IsCreated)
+                    if (listenerListCapacityPair.RefRW.IsCreated)
                     {
                         // Ensure capacity
 
-                        listenerListCapacityPair.Clear();
-                        listenerListCapacityPair.EnsureCapacity(list->Length, tempAllocator, keepOldData: false);
+                        listenerListCapacityPair.RefRW.Clear();
+                        listenerListCapacityPair.RefRW.EnsureCapacity(list->Length, tempAllocator, keepOldData: false);
 
                         // Keep original capacity
-                        listenerListCapacityPair.RequiredCapacity = list->Capacity;
+                        listenerListCapacityPair.RefRW.RequiredCapacity = list->Capacity;
                     }
                     else
                     {
@@ -439,19 +439,19 @@ namespace EvilOctane.Entities.Internal
                             continue;
                         }
 
-                        listenerListCapacityPair.AddNoResize(listenerEntity);
+                        listenerListCapacityPair.RefRW.AddNoResize(listenerEntity);
                     }
                 }
                 else
                 {
                     // Copy all listeners
-                    listenerListCapacityPair.AddRangeNoResize(EventListenerList.AsSpan(list));
+                    listenerListCapacityPair.RefRW.AddRangeNoResize(EventListenerList.AsSpan(list));
                 }
 
                 continue;
 
             Allocate:
-                listenerListCapacityPair = new EventListenerListCapacityPair(list->Length, list->Capacity, tempAllocator);
+                listenerListCapacityPair.RefRW = new EventListenerListCapacityPair(list->Length, list->Capacity, tempAllocator);
                 goto Copy;
             }
         }

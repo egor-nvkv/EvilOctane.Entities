@@ -7,6 +7,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using UnityEngine;
+using static EvilOctane.Entities.LogUtility;
 using static System.Runtime.CompilerServices.Unsafe;
 using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 using AssetLibraryTable = EvilOctane.Collections.LowLevel.Unsafe.InPlaceSwissTable<EvilOctane.Entities.Internal.AssetLibraryKey, Unity.Entities.UnityObjectRef<UnityEngine.Object>, EvilOctane.Entities.Internal.AssetLibraryKeyHasher>;
@@ -89,12 +90,12 @@ namespace EvilOctane.Entities
                 }
 
                 storage.ReinterpretStorageRO(out AssetLibraryTableHeader* assetLibrary);
-                ref UnityObjectRef<UnityObject> item = ref AssetLibraryTable.TryGet(assetLibrary, key, out bool exists);
+                Ref<UnityObjectRef<UnityObject>> item = AssetLibraryTable.TryGet(assetLibrary, key, out bool exists);
 
                 if (exists)
                 {
                     // Found
-                    assetRef = item;
+                    assetRef = item.RefRW;
                     return true;
                 }
             }
@@ -106,22 +107,64 @@ namespace EvilOctane.Entities
             return false;
         }
 
+        [SkipLocalsInit]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void LogEmptyAssetName(ByteSpan assetDescription)
+        internal static void LogEmptyAssetName(ByteSpan assetDescription)
         {
-            SkipInit(out FixedString512Bytes assetDescription512);
-            _ = FixedStringMethods.CopyFromTruncated(ref assetDescription512, assetDescription);
+            SkipInit(out FixedString4096Bytes message);
+            message.Length = 0;
 
-            Debug.LogError($"AssetLibrary | Asset \"{assetDescription512}\" is marked as required but an empty name was received.");
+            _ = message.Append(
+                (FixedString32Bytes)"Asset \"",
+                assetDescription,
+                (FixedString64Bytes)"\" is marked as required but an empty name was received.");
+
+            LogTaggedGeneric(
+                (FixedString32Bytes)"AssetLibrary",
+                (FixedString32Bytes)"Baking",
+                in message,
+                LogType.Error);
         }
 
+        [SkipLocalsInit]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void LogAssetNotFound(ByteSpan assetDescription, AssetLibraryKey key)
+        internal static void LogAssetNotFound(ByteSpan assetDescription, AssetLibraryKey key)
         {
-            SkipInit(out FixedString512Bytes assetDescription512);
-            _ = FixedStringMethods.CopyFromTruncated(ref assetDescription512, assetDescription);
+            SkipInit(out FixedString4096Bytes message);
+            message.Length = 0;
 
-            Debug.LogError($"AssetLibrary | Asset \"{assetDescription512}\" {key.ToFixedString()} not found.");
+            _ = message.Append(
+                (FixedString32Bytes)"Asset \"",
+                assetDescription,
+                (FixedString32Bytes)"\" ",
+                key.ToFixedString(),
+                (FixedString32Bytes)" not found.");
+
+            LogTaggedGeneric(
+                (FixedString32Bytes)"AssetLibrary",
+                (FixedString32Bytes)"Baking",
+                in message,
+                LogType.Error);
+        }
+
+        [SkipLocalsInit]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void LogDuplicateAsset(RefRO<BakedEntityNameComponent> assetLibraryName, AssetLibraryKey key)
+        {
+            SkipInit(out FixedString4096Bytes message);
+            message.Length = 0;
+
+            _ = message.Append(
+                (FixedString32Bytes)"Multiple assets in library \"",
+                in assetLibraryName.ValueRO.EntityName,
+                (FixedString32Bytes)"\" have the same key: ",
+                key.ToFixedString());
+
+            LogTaggedGeneric(
+                (FixedString32Bytes)"AssetLibrary",
+                (FixedString32Bytes)"Baking",
+                in message,
+                LogType.Error);
         }
     }
 }

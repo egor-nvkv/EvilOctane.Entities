@@ -80,7 +80,7 @@ namespace EvilOctane.Entities.Internal
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
                 UnityObjectRef<AssetLibrary> assetLibrary = referencePtr[entityIndex].AssetLibrary;
-                ref UnsafeList<Entity> consumerEntityList = ref bakedReferenceTableRO.TryGet(assetLibrary, out bool wasRebaked);
+                Ref<UnsafeList<Entity>> consumerEntityList = bakedReferenceTableRO.TryGet(assetLibrary, out bool wasRebaked);
 
                 if (!wasRebaked)
                 {
@@ -96,12 +96,12 @@ namespace EvilOctane.Entities.Internal
                 DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer = consumerEntityBufferAccessor[entityIndex];
 
                 int oldLength = consumerEntityBuffer.Length;
-                consumerEntityBuffer.EnsureCapacity(oldLength + consumerEntityList.Length);
+                consumerEntityBuffer.EnsureCapacity(oldLength + consumerEntityList.RefRW.Length);
 
                 // Ptr won't move
                 UnsafeSpan<Entity> existingConsumerEntitySpan = consumerEntityBuffer.AsSpanRO()[..oldLength].Reinterpret<Entity>();
 
-                foreach (Entity consumerEntity in consumerEntityList)
+                foreach (Entity consumerEntity in consumerEntityList.RefRW)
                 {
                     if (existingConsumerEntitySpan.Contains(consumerEntity))
                     {

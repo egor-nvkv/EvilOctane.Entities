@@ -1,7 +1,7 @@
 {
   "name": "com.evil-octane.entities",
   "displayName": "EvilOctane Entities",
-  "version": "0.13.2",
+  "version": "0.14.0",
   "unity": "6000.0",
   "unityRelease": "0f1",
   "description": "Extension containers and methods for Unity.Entities package.",
@@ -10,7 +10,7 @@
     "dots"
   ],
   "dependencies": {
-    "com.evil-octane.collections": "0.13.1",
+    "com.evil-octane.collections": "0.14.0",
     "com.unity.entities": "1.4.3",
     "com.unity.profiling.core": "1.0.2",
     "com.unity.test-framework": "1.5.1",
