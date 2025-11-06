@@ -12,6 +12,14 @@ namespace Unity.Entities
     public static unsafe partial class DynamicBufferExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ref T ElementAtReadOnly<T>(this DynamicBuffer<T> self, int index)
+            where T : unmanaged
+        {
+            CheckContainerIndexInRange(index, self.Length);
+            return ref ((T*)self.GetUnsafeReadOnlyPtr())[index];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ReinterpretStorageRW<T, U>(this DynamicBuffer<T> self, out U* storage)
             where T : unmanaged
             where U : unmanaged

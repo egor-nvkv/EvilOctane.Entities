@@ -90,12 +90,12 @@ namespace EvilOctane.Entities
                 }
 
                 storage.ReinterpretStorageRO(out AssetLibraryTableHeader* assetLibrary);
-                Ref<UnityObjectRef<UnityObject>> item = AssetLibraryTable.TryGet(assetLibrary, key, out bool exists);
+                Pointer<UnityObjectRef<UnityObject>> item = AssetLibraryTable.TryGet(assetLibrary, key, out bool exists);
 
                 if (exists)
                 {
                     // Found
-                    assetRef = item.RefRW;
+                    assetRef = item.AsRef;
                     return true;
                 }
             }
@@ -119,7 +119,7 @@ namespace EvilOctane.Entities
                 assetDescription,
                 (FixedString64Bytes)"\" is marked as required but an empty name was received.");
 
-            LogTaggedGeneric(
+            LogTagged(
                 (FixedString32Bytes)"AssetLibrary",
                 (FixedString32Bytes)"Baking",
                 in message,
@@ -140,7 +140,7 @@ namespace EvilOctane.Entities
                 key.ToFixedString(),
                 (FixedString32Bytes)" not found.");
 
-            LogTaggedGeneric(
+            LogTagged(
                 (FixedString32Bytes)"AssetLibrary",
                 (FixedString32Bytes)"Baking",
                 in message,
@@ -160,7 +160,7 @@ namespace EvilOctane.Entities
                 (FixedString32Bytes)"\" have the same key: ",
                 key.ToFixedString());
 
-            LogTaggedGeneric(
+            LogTagged(
                 (FixedString32Bytes)"AssetLibrary",
                 (FixedString32Bytes)"Baking",
                 in message,

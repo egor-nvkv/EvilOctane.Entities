@@ -46,12 +46,12 @@ namespace EvilOctane.Entities.Internal
 
                 // Add to table
                 AssetLibraryKey tableKey = new(tempKey.AssetTypeHash, tableAssetNameSpan);
-                Ref<UnityObjectRef<UnityObject>> item = AssetLibraryTable.GetOrAddNoResize(assetLibrary, tableKey, out bool added);
+                Pointer<UnityObjectRef<UnityObject>> item = AssetLibraryTable.GetOrAddNoResize(assetLibrary, tableKey, out bool added);
 
                 if (Hint.Likely(added))
                 {
                     // Added
-                    item.RefRW = assetSpan[index].Asset;
+                    item.AsRef = assetSpan[index].Asset;
                 }
                 else
                 {

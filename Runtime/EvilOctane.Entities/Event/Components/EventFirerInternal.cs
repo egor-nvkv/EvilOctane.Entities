@@ -14,5 +14,15 @@ namespace EvilOctane.Entities.Internal
                 public byte RawByte;
             }
         }
+
+        public struct RawEventSubscriptionRegistry
+        {
+            [InternalBufferCapacity(0)]
+            [StructLayout(LayoutKind.Sequential, Size = 1)]
+            public struct Storage : ICleanupBufferElementData
+            {
+                public byte RawByte;
+            }
+        }
     }
 }

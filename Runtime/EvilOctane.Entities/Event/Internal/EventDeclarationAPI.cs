@@ -26,7 +26,7 @@ namespace EvilOctane.Entities.Internal
                 }
 
                 // Register Event type
-                eventTypeListenerCapacityTable.GetOrAddNoResize(typeIndex, out _).RefRW = eventStableType.ListenerListInitialCapacity;
+                eventTypeListenerCapacityTable.GetOrAddNoResize(typeIndex, out _).AsRef = eventStableType.ListenerListInitialCapacity;
             }
         }
 

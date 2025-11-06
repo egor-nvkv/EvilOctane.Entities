@@ -23,27 +23,27 @@ namespace EvilOctane.Entities.Internal
 
             foreach (AssetLibraryInternal.ReferenceBufferElement reference in referenceBuffer)
             {
-                Ref<UnsafeList<Entity>> entityList = referenceTable.GetOrAddNoResize(reference.AssetLibrary, out bool added);
+                Pointer<UnsafeList<Entity>> entityList = referenceTable.GetOrAddNoResize(reference.AssetLibrary, out bool added);
 
                 if (added)
                 {
                     // List added
-                    entityList.RefRW = UnsafeListExtensions2.Create<Entity>(8, Allocator);
+                    entityList.AsRef = UnsafeListExtensions2.Create<Entity>(8, Allocator);
                 }
                 else
                 {
                     // List exists
 
-                    if (entityList.RefRW.Contains(entity))
+                    if (entityList.AsRef.Contains(entity))
                     {
                         // Already added
                         continue;
                     }
 
-                    entityList.RefRW.EnsureCapacity(1);
+                    entityList.AsRef.EnsureCapacity(1);
                 }
 
-                entityList.RefRW.AddNoResize(entity);
+                entityList.AsRef.AddNoResize(entity);
             }
         }
     }

@@ -84,7 +84,7 @@ namespace EvilOctane.Entities.Internal
             for (int eventIndex = 0; eventIndex != eventSpanRO.Length; ++eventIndex)
             {
                 TypeIndex eventTypeIndex = eventTypeSpanRO[eventIndex].EventTypeIndex;
-                Ref<EventListenerListOffset> listenerListOffset = EventListenerTable.TryGet(listenerTable, eventTypeIndex, out bool exists);
+                Pointer<EventListenerListOffset> listenerListOffset = EventListenerTable.TryGet(listenerTable, eventTypeIndex, out bool exists);
 
                 if (Hint.Unlikely(!exists))
                 {
@@ -100,7 +100,7 @@ namespace EvilOctane.Entities.Internal
                 }
 
                 // Listeners to this Event type
-                EventListenerListHeader* listenerList = listenerListOffset.RefRW.GetList(listenerTable, firstListOffset);
+                EventListenerListHeader* listenerList = listenerListOffset.AsRef.GetList(listenerTable, firstListOffset);
 
                 if (listenerList->Length == 0)
                 {

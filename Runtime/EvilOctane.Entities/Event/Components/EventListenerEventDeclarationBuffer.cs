@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Unity.Entities;
+using static EvilOctane.Entities.EventAPI;
 
 namespace EvilOctane.Entities
 {
@@ -30,6 +31,25 @@ namespace EvilOctane.Entities
                 public override readonly string ToString()
                 {
                     return TypeManager.StableTypeHashToDebugTypeName(EventStableTypeHash).ToString();
+                }
+            }
+        }
+
+        public struct RawEventDeclarationBuffer
+        {
+            [InternalBufferCapacity(0)]
+            public struct TypeElement : IBufferElementData
+            {
+                public ulong EventTypeHash;
+
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                public static TypeElement Create<T>()
+                    where T : unmanaged, IRawEvent
+                {
+                    return new TypeElement()
+                    {
+                        EventTypeHash = GetRawEventTypeHashCode<T>()
+                    };
                 }
             }
         }

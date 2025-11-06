@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.14.1] - 2025-11-07
+
+* Added RawEvent components
+
 ## [0.14.0] - 2025-11-05
 
 * SwissTable ref return changes

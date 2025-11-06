@@ -1,5 +1,6 @@
 using EvilOctane.Entities.Internal;
 using System.Runtime.CompilerServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -8,6 +9,20 @@ namespace EvilOctane.Entities
 {
     public static partial class EventAPI
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsRawEventType<T>(ulong rawEventTypeHashCode)
+            where T : unmanaged, IRawEvent
+        {
+            return rawEventTypeHashCode == GetRawEventTypeHashCode<T>();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong GetRawEventTypeHashCode<T>()
+            where T : unmanaged, IRawEvent
+        {
+            return (ulong)BurstRuntime.GetHashCode64<T>();
+        }
+
         // Firer
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
