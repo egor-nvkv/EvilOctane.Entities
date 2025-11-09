@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
+using static System.Runtime.CompilerServices.Unsafe;
 using AssetLibraryConsumerEntityListTable = EvilOctane.Collections.LowLevel.Unsafe.UnsafeSwissTable<Unity.Entities.UnityObjectRef<EvilOctane.Entities.AssetLibrary>, Unity.Collections.LowLevel.Unsafe.UnsafeList<Unity.Entities.Entity>, EvilOctane.Collections.XXH3PodHasher<Unity.Entities.UnityObjectRef<EvilOctane.Entities.AssetLibrary>>>;
 
 namespace EvilOctane.Entities.Internal
@@ -75,7 +76,7 @@ namespace EvilOctane.Entities.Internal
         {
             int entitiesToUpdateCount = 0;
 
-            ref AssetLibraryConsumerEntityListTable bakedReferenceTableRO = ref BakedReferenceTableRef.GetRefReadOnly();
+            ref AssetLibraryConsumerEntityListTable bakedReferenceTableRO = ref AsRef(in BakedReferenceTableRef.GetRefReadOnly());
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 using static Unity.Collections.CollectionHelper;
 using static Unity.Collections.CollectionHelper2;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 
 namespace Unity.Entities.LowLevel.Unsafe
 {
@@ -16,7 +17,7 @@ namespace Unity.Entities.LowLevel.Unsafe
             CheckContainerLength(length);
             CheckCapacityInRange(self.Capacity, length);
 
-            ref DynamicBufferExposed<T> exposed = ref UnsafeUtility2.Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            ref DynamicBufferExposed<T> exposed = ref Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
 
             CheckWriteAccessAndInvalidateArrayAliases(ref exposed);
             exposed.m_Buffer->Length = length;

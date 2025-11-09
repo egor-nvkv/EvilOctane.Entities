@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.14.2] - 2025-11-09
+
+* Added BlobAsset extensions
+
 ## [0.14.1] - 2025-11-07
 
 * Added RawEvent components

@@ -12,7 +12,7 @@ namespace Unity.Entities
     public static unsafe partial class DynamicBufferExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref T ElementAtReadOnly<T>(this DynamicBuffer<T> self, int index)
+        public static ref readonly T ElementAtReadOnly<T>(this DynamicBuffer<T> self, int index)
             where T : unmanaged
         {
             CheckContainerIndexInRange(index, self.Length);
@@ -81,7 +81,7 @@ namespace Unity.Entities
         {
             EnsureCapacityTrashOldData(self, length);
 
-            ref DynamicBufferExposed<T> exposed = ref UnsafeUtility2.Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            ref DynamicBufferExposed<T> exposed = ref Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
             exposed.m_Buffer->Length = length;
         }
 
@@ -95,9 +95,9 @@ namespace Unity.Entities
         public static void EnsureCapacityTrashOldData<T>(this DynamicBuffer<T> self, int length)
             where T : unmanaged
         {
-            CollectionHelper2.CheckContainerLength(length);
+            CheckContainerLength(length);
 
-            ref DynamicBufferExposed<T> exposed = ref UnsafeUtility2.Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            ref DynamicBufferExposed<T> exposed = ref Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
 
             CheckWriteAccessAndInvalidateArrayAliases(ref exposed);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -105,6 +105,20 @@ namespace Unity.Entities
 #else
             BufferHeader.EnsureCapacity(exposed.m_Buffer, length, sizeof(T), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.TrashOldData, false, 0);
 #endif
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="DynamicBuffer{T}.EnsureCapacity(int)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="slack"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void EnsureSlack<T>(this DynamicBuffer<T> self, int slack)
+            where T : unmanaged
+        {
+            CheckContainerElementCount(slack);
+            self.EnsureCapacity(self.Length + slack);
         }
 
         /// <summary>
@@ -117,7 +131,7 @@ namespace Unity.Entities
         public static void TrimExcessTrashOldData<T>(this DynamicBuffer<T> self)
             where T : unmanaged
         {
-            ref DynamicBufferExposed<T> exposed = ref UnsafeUtility2.Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            ref DynamicBufferExposed<T> exposed = ref Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
 
             CheckWriteAccessAndInvalidateArrayAliases(ref exposed);
 
@@ -170,7 +184,7 @@ namespace Unity.Entities
         public static bool RemoveFirstMatchSwapBack<T, U>(this DynamicBuffer<T> self, U value)
             where T : unmanaged, IEquatable<U>
         {
-            int index = NativeArrayExtensions.IndexOf<T, U>(self.GetUnsafeReadOnlyPtr(), self.Length, value);
+            int index = self.AsSpanRO().IndexOf(value);
 
             if (index < 0)
             {
@@ -179,6 +193,20 @@ namespace Unity.Entities
 
             self.RemoveAtSwapBack(index);
             return true;
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="DynamicBuffer{T}.CopyFrom(NativeArray{T})"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="v"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void CopyFrom<T>(this DynamicBuffer<T> self, UnsafeSpan<T> v)
+            where T : unmanaged
+        {
+            self.ResizeUninitializedTrashOldData(v.Length);
+            self.AsSpanRW().CopyFrom(v);
         }
     }
 }
