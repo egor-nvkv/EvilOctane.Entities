@@ -17,7 +17,7 @@ namespace Unity.Entities.LowLevel.Unsafe
             CheckContainerLength(length);
             CheckCapacityInRange(self.Capacity, length);
 
-            ref DynamicBufferExposed<T> exposed = ref Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            ref DynamicBufferExposed<T> exposed = ref ReinterpretExact<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
 
             CheckWriteAccessAndInvalidateArrayAliases(ref exposed);
             exposed.m_Buffer->Length = length;

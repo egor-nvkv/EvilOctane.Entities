@@ -3,9 +3,9 @@ using Unity.Burst;
 using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 
 namespace EvilOctane.Entities
 {
@@ -26,7 +26,7 @@ namespace EvilOctane.Entities
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            UnsafeUtility2.CheckReinterpretArgs<TEntityOwnerElement, Entity>(requireExactAlignment: true);
+            CheckReinterpretArgs<TEntityOwnerElement, Entity>();
 
             Assert.IsFalse(useEnabledMask);
 

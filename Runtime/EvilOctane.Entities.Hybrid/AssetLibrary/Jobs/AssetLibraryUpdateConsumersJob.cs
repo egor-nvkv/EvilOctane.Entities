@@ -19,7 +19,7 @@ namespace EvilOctane.Entities.Internal
 
         public void Execute(
             Entity entity,
-            DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer)
+            in DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer)
         {
             ref UnsafeSwissSet<Entity, XXH3PodHasher<Entity>> bufferAddedSet = ref AssetLibraryEntityBufferAddedSetRef.GetRef();
             bufferAddedSet.EnsureSlack(consumerEntityBuffer.Length);

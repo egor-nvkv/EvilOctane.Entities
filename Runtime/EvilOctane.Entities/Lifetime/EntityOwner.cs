@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 
 namespace EvilOctane.Entities
 {
@@ -13,7 +14,7 @@ namespace EvilOctane.Entities
         public static UnsafeList<Entity> ExtractOwnedEntityList<T>(ref BufferAccessor<T> bufferAccessor, AllocatorManager.AllocatorHandle allocator, bool clearBuffers)
             where T : unmanaged, IEntityOwnerBufferElementData
         {
-            UnsafeUtility2.CheckReinterpretArgs<T, Entity>(requireExactAlignment: true);
+            CheckReinterpretArgs<T, Entity>();
 
             int totalElementCount = (int)bufferAccessor.GetTotalElementCount();
 
@@ -46,7 +47,7 @@ namespace EvilOctane.Entities
             where TElement : unmanaged, IEntityOwnerBufferElementData
             where TDummyComponent : unmanaged, IComponentData
         {
-            UnsafeUtility2.CheckReinterpretArgs<TElement, Entity>(requireExactAlignment: true);
+            CheckReinterpretArgs<TElement, Entity>();
 
             int totalElementCount = (int)bufferAccessor.GetTotalElementCount();
 

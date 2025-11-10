@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.14.3] - 2025-11-11
+
+* IJobEntity read-only components are passed with 'in' keyword
+
 ## [0.14.2] - 2025-11-09
 
 * Added BlobAsset extensions

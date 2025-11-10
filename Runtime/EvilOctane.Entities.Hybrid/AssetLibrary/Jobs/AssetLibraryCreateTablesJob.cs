@@ -15,9 +15,9 @@ namespace EvilOctane.Entities.Internal
     {
         public void Execute(
             RefRO<BakedEntityNameComponent> entityName,
-            DynamicBuffer<AssetLibraryInternal.KeyStorage> keyStorage,
-            DynamicBuffer<AssetLibraryInternal.KeyBufferElement> keyBuffer,
-            DynamicBuffer<AssetLibraryInternal.AssetBufferElement> assetBuffer,
+            in DynamicBuffer<AssetLibraryInternal.KeyStorage> keyStorage,
+            in DynamicBuffer<AssetLibraryInternal.KeyBufferElement> keyBuffer,
+            in DynamicBuffer<AssetLibraryInternal.AssetBufferElement> assetBuffer,
             ref DynamicBuffer<AssetLibrary.Storage> storage)
         {
             Assert.AreEqual(keyBuffer.Length, assetBuffer.Length);

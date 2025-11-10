@@ -16,7 +16,7 @@ namespace EvilOctane.Entities.Internal
 
         public void Execute(
             Entity entity,
-            DynamicBuffer<AssetLibraryInternal.ReferenceBufferElement> referenceBuffer)
+            in DynamicBuffer<AssetLibraryInternal.ReferenceBufferElement> referenceBuffer)
         {
             ref AssetLibraryConsumerEntityListTable referenceTable = ref BakedReferenceTableRef.GetRef();
             referenceTable.EnsureSlack(referenceBuffer.Length);

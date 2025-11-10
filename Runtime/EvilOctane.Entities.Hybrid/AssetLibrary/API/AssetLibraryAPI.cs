@@ -52,7 +52,7 @@ namespace EvilOctane.Entities
                 isOptionalIfNameIsEmpty: isOptionalIfNameIsEmpty,
                 out UnityObjectRef<UnityObject> assetRefUntyped);
 
-            assetRef = Reinterpret<UnityObjectRef<UnityObject>, UnityObjectRef<T>>(ref assetRefUntyped);
+            assetRef = ReinterpretExact<UnityObjectRef<UnityObject>, UnityObjectRef<T>>(ref assetRefUntyped);
             return result;
         }
 

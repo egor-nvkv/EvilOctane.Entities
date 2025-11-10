@@ -81,7 +81,7 @@ namespace Unity.Entities
         {
             EnsureCapacityTrashOldData(self, length);
 
-            ref DynamicBufferExposed<T> exposed = ref Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            ref DynamicBufferExposed<T> exposed = ref ReinterpretExact<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
             exposed.m_Buffer->Length = length;
         }
 
@@ -97,7 +97,7 @@ namespace Unity.Entities
         {
             CheckContainerLength(length);
 
-            ref DynamicBufferExposed<T> exposed = ref Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            ref DynamicBufferExposed<T> exposed = ref ReinterpretExact<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
 
             CheckWriteAccessAndInvalidateArrayAliases(ref exposed);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -131,7 +131,7 @@ namespace Unity.Entities
         public static void TrimExcessTrashOldData<T>(this DynamicBuffer<T> self)
             where T : unmanaged
         {
-            ref DynamicBufferExposed<T> exposed = ref Reinterpret<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
+            ref DynamicBufferExposed<T> exposed = ref ReinterpretExact<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref self);
 
             CheckWriteAccessAndInvalidateArrayAliases(ref exposed);
 
