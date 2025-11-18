@@ -1,15 +1,17 @@
+using EvilOctane.Collections;
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 using static System.Runtime.CompilerServices.Unsafe;
 
 namespace EvilOctane.Entities.Internal
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct AssetLibraryKey : IEquatable<AssetLibraryKey>
+    public unsafe struct AssetLibraryKey : IEquatable<AssetLibraryKey>
     {
         public ulong AssetTypeHash;
         public ByteSpan AssetName;
@@ -47,6 +49,16 @@ namespace EvilOctane.Entities.Internal
             _ = result.AppendRawByte((byte)')');
 
             return result;
+        }
+
+        public struct Hasher : IHasher64<AssetLibraryKey>
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly ulong CalculateHash(in AssetLibraryKey value)
+            {
+                uint2 nameHash = xxHash3.Hash64(value.AssetName.Ptr, value.AssetName.Length);
+                return value.AssetTypeHash ^ ReadUnaligned<ulong>(&nameHash);
+            }
         }
     }
 }

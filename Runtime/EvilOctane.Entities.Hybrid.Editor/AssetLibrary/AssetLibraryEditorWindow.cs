@@ -16,7 +16,7 @@ namespace EvilOctane.Entities.Editor
         private ListView assetListView;
 
         [MenuItem("Window/Evil Octane/Asset Library")]
-        public static void ShowMyEditor()
+        public static void ShowEditorWindow()
         {
             EditorWindow editorWindow = GetWindow<AssetLibraryEditorWindow>();
             editorWindow.titleContent = new GUIContent("Asset Library Editor");

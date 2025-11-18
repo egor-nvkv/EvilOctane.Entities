@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.14.4] - 2025-11-18
+
+* AssetLibrary fixes
+
 ## [0.14.3] - 2025-11-11
 
 * IJobEntity read-only components are passed with 'in' keyword

@@ -4,7 +4,7 @@ using static Unity.Entities.SystemAPI;
 
 namespace EvilOctane.Entities.Internal
 {
-    [UpdateInGroup(typeof(PostBakingSystemGroup), OrderLast = true)]
+    [UpdateInGroup(typeof(PostBakingSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
     public partial struct BakedEntityNameSystem : ISystem
     {
