@@ -40,6 +40,46 @@ namespace Unity.Entities.LowLevel.Unsafe
         }
 
         /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddComponent{T}(NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="component"></param>
+        public static void AddComponent<T>(this EntityCommandBuffer self, Entity* entities, int length, T component)
+            where T : unmanaged, IComponentData
+        {
+            self.EnforceSingleThreadOwnership();
+            self.AssertDidNotPlayback();
+
+            Entity* entitiesCopy = self.m_Data->CloneAndSearchForDeferredEntities(entities, length, out bool containsDeferredEntities);
+
+            _ = self.m_Data->AppendMultipleEntitiesComponentCommandWithValue(
+                &self.m_Data->m_MainThreadChain,
+                self.MainThreadSortKey,
+                ECBCommand.AddComponentForMultipleEntities,
+                entitiesCopy,
+                length,
+                containsDeferredEntities,
+                component);
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddComponent{T}(NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="component"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddComponent<T>(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, T component)
+            where T : unmanaged, IComponentData
+        {
+            AddComponent(self, entities.Ptr, entities.Length, component);
+        }
+
+        /// <summary>
         /// <inheritdoc cref="EntityCommandBuffer.AddComponent{T}(NativeArray{Entity})"/>
         /// </summary>
         /// <typeparam name="T"></typeparam>

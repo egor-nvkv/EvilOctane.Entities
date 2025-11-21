@@ -13,6 +13,12 @@ namespace EvilOctane.Entities.Internal
         }
 
         [TemporaryBakingType]
+        public struct ReferenceBufferElement : IBufferElementData
+        {
+            public UnityObjectRef<AssetLibrary> AssetLibrary;
+        }
+
+        [TemporaryBakingType]
         [InternalBufferCapacity(0)]
         [StructLayout(LayoutKind.Sequential, Size = 1)]
         public struct KeyStorage : IBufferElementData
@@ -37,15 +43,9 @@ namespace EvilOctane.Entities.Internal
         }
 
         [BakingType]
-        public struct ConsumerEntityBufferElement : IBufferElementData
+        public struct ConsumerBufferElement : IBufferElementData
         {
-            public Entity ConsumerEntity;
-        }
-
-        [TemporaryBakingType]
-        public struct ReferenceBufferElement : IBufferElementData
-        {
-            public UnityObjectRef<AssetLibrary> AssetLibrary;
+            public Entity Entity;
         }
     }
 }

@@ -19,14 +19,14 @@ namespace EvilOctane.Entities.Internal
 
         public void Execute(
             Entity entity,
-            in DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer)
+            in DynamicBuffer<AssetLibraryInternal.ConsumerBufferElement> consumerBuffer)
         {
             ref UnsafeSwissSet<Entity, XXH3PodHasher<Entity>> bufferAddedSet = ref AssetLibraryEntityBufferAddedSetRef.GetRef();
-            bufferAddedSet.EnsureSlack(consumerEntityBuffer.Length);
+            bufferAddedSet.EnsureSlack(consumerBuffer.Length);
 
-            foreach (AssetLibraryInternal.ConsumerEntityBufferElement consumerEntity in consumerEntityBuffer)
+            foreach (AssetLibraryInternal.ConsumerBufferElement consumerEntity in consumerBuffer)
             {
-                bool bufferExists = AssetLibraryEntityBufferLookup.TryGetBuffer(consumerEntity.ConsumerEntity, out DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer, out bool entityExists);
+                bool bufferExists = AssetLibraryEntityBufferLookup.TryGetBuffer(consumerEntity.Entity, out DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer, out bool entityExists);
 
                 if (Hint.Unlikely(!entityExists))
                 {
@@ -34,7 +34,7 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                AssetLibrary.EntityBufferElement assetLibraryEntity = new() { AssetLibraryEntity = entity };
+                AssetLibrary.EntityBufferElement assetLibraryEntity = new() { AssetLibrary = entity };
 
                 if (bufferExists)
                 {
@@ -48,12 +48,12 @@ namespace EvilOctane.Entities.Internal
                 }
                 else
                 {
-                    bool createBuffer = bufferAddedSet.AddNoResize(consumerEntity.ConsumerEntity);
+                    bool createBuffer = bufferAddedSet.AddNoResize(consumerEntity.Entity);
 
                     if (createBuffer)
                     {
                         // Create asset library buffer
-                        assetLibraryEntityBuffer = CommandBuffer.AddBuffer<AssetLibrary.EntityBufferElement>(consumerEntity.ConsumerEntity);
+                        assetLibraryEntityBuffer = CommandBuffer.AddBuffer<AssetLibrary.EntityBufferElement>(consumerEntity.Entity);
 
                         assetLibraryEntityBuffer.ResizeUninitializedTrashOldData(1);
                         assetLibraryEntityBuffer[0] = assetLibraryEntity;
@@ -61,7 +61,7 @@ namespace EvilOctane.Entities.Internal
                     else
                     {
                         // Asset library buffer created                    
-                        CommandBuffer.AppendToBuffer(consumerEntity.ConsumerEntity, assetLibraryEntity);
+                        CommandBuffer.AppendToBuffer(consumerEntity.Entity, assetLibraryEntity);
                     }
                 }
             }

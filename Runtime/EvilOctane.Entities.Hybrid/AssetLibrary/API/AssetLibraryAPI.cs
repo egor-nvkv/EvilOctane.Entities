@@ -43,7 +43,7 @@ namespace EvilOctane.Entities
             where S1 : unmanaged, INativeList<byte>, IUTF8Bytes
             where T : UnityObject
         {
-            bool result = !TryFindAsset(
+            bool result = TryFindAsset(
                 ref assetLibraryStorageLookupRO,
                 assetLibraryEntityBufferRO.AsSpanRO(),
                 assetDescription: assetDescription.AsByteSpan(),
@@ -83,7 +83,7 @@ namespace EvilOctane.Entities
 
             foreach (AssetLibrary.EntityBufferElement assetLibraryEntity in assetLibraryEntitySpanRO)
             {
-                if (Hint.Unlikely(!assetLibraryStorageLookupRO.TryGetBuffer(assetLibraryEntity.AssetLibraryEntity, out DynamicBuffer<AssetLibrary.Storage> storage)))
+                if (Hint.Unlikely(!assetLibraryStorageLookupRO.TryGetBuffer(assetLibraryEntity.AssetLibrary, out DynamicBuffer<AssetLibrary.Storage> storage)))
                 {
                     // No storage
                     continue;
@@ -120,7 +120,7 @@ namespace EvilOctane.Entities
                 (FixedString64Bytes)"\" is marked as required but an empty name was received.");
 
             LogTagged(
-                (FixedString32Bytes)"AssetLibrary",
+                (FixedString32Bytes)nameof(AssetLibrary),
                 (FixedString32Bytes)"Baking",
                 in message,
                 LogType.Error);
@@ -141,7 +141,7 @@ namespace EvilOctane.Entities
                 (FixedString32Bytes)" not found.");
 
             LogTagged(
-                (FixedString32Bytes)"AssetLibrary",
+                (FixedString32Bytes)nameof(AssetLibrary),
                 (FixedString32Bytes)"Baking",
                 in message,
                 LogType.Error);
@@ -161,7 +161,7 @@ namespace EvilOctane.Entities
                 key.ToFixedString());
 
             LogTagged(
-                (FixedString32Bytes)"AssetLibrary",
+                (FixedString32Bytes)nameof(AssetLibrary),
                 (FixedString32Bytes)"Baking",
                 in message,
                 LogType.Error);

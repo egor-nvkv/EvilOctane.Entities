@@ -14,7 +14,7 @@ namespace EvilOctane.Entities.Internal
     [UpdateAfter(typeof(AssetLibraryPrepareEntitiesSystem))]
     [UpdateInGroup(typeof(AssetLibraryBakingSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-    public unsafe partial struct AssetLibraryCopyListsSystem : ISystem
+    public unsafe partial struct AssetLibraryCopyBuffersSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {

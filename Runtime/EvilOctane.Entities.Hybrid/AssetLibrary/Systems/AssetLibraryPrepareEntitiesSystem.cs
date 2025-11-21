@@ -30,21 +30,21 @@ namespace EvilOctane.Entities.Internal
                 ComponentType.ReadWrite<AssetLibraryInternal.KeyBufferElement>(),
                 ComponentType.ReadWrite<AssetLibraryInternal.AssetBufferElement>(),
                 ComponentType.ReadWrite<AssetLibraryInternal.Reference>(),
-                ComponentType.ReadWrite<AssetLibraryInternal.ConsumerEntityBufferElement>()
+                ComponentType.ReadWrite<AssetLibraryInternal.ConsumerBufferElement>()
             });
 
             garbageCollectQuery = QueryBuilder()
                 .WithAll<
                     AssetLibraryInternal.Reference>()
                 .WithAllRW<
-                    AssetLibraryInternal.ConsumerEntityBufferElement>()
+                    AssetLibraryInternal.ConsumerBufferElement>()
                 .Build();
 
             updateRebakedTablesQuery = QueryBuilder()
                 .WithAll<
                     AssetLibraryInternal.Reference>()
                 .WithAllRW<
-                    AssetLibraryInternal.ConsumerEntityBufferElement>()
+                    AssetLibraryInternal.ConsumerBufferElement>()
                 .Build();
         }
 
@@ -59,7 +59,7 @@ namespace EvilOctane.Entities.Internal
                 EntityTypeHandle = GetEntityTypeHandle(),
 
                 ReferenceTypeHandle = GetComponentTypeHandle<AssetLibraryInternal.Reference>(isReadOnly: true),
-                ConsumerEntityBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.ConsumerEntityBufferElement>(),
+                ConsumerBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.ConsumerBufferElement>(),
 
                 AssetLibraryEntityBufferLookup = GetBufferLookup<AssetLibrary.EntityBufferElement>(),
                 CommandBuffer = commandBuffer
@@ -92,7 +92,7 @@ namespace EvilOctane.Entities.Internal
                     EntityTypeHandle = GetEntityTypeHandle(),
 
                     ReferenceTypeHandle = GetComponentTypeHandle<AssetLibraryInternal.Reference>(isReadOnly: true),
-                    ConsumerEntityBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.ConsumerEntityBufferElement>(),
+                    ConsumerBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.ConsumerBufferElement>(),
 
                     BakedReferenceTableRef = bakedReferenceTableRef,
                     CommandBuffer = parallelWriter

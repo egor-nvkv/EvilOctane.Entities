@@ -44,6 +44,48 @@ namespace Unity.Entities.LowLevel.Unsafe
         }
 
         /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.ParallelWriter.AddComponent{T}(int, NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="sortKey"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="component"></param>
+        public static void AddComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, Entity* entities, int length, T component)
+            where T : unmanaged, IComponentData
+        {
+            CheckWriteAccess(self);
+
+            EntityCommandBufferChain* chain = GetThreadChain(self);
+            Entity* entitiesCopy = self.m_Data->CloneAndSearchForDeferredEntities(entities, length, out bool containsDeferredEntities);
+
+            _ = self.m_Data->AppendMultipleEntitiesComponentCommandWithValue(
+                chain,
+                sortKey,
+                ECBCommand.AddComponentForMultipleEntities,
+                entitiesCopy,
+                length,
+                containsDeferredEntities,
+                component);
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.ParallelWriter.AddComponent{T}(int, NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="sortKey"></param>
+        /// <param name="entities"></param>
+        /// <param name="component"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, UnsafeSpan<Entity> entities, T component)
+            where T : unmanaged, IComponentData
+        {
+            AddComponent(self, sortKey, entities.Ptr, entities.Length, component);
+        }
+
+        /// <summary>
         /// <inheritdoc cref="EntityCommandBuffer.ParallelWriter.AddComponent{T}(int, NativeArray{Entity})"/>
         /// </summary>
         /// <typeparam name="T"></typeparam>

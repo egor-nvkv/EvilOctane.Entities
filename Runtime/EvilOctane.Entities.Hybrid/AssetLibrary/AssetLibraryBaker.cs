@@ -10,15 +10,27 @@ namespace EvilOctane.Entities.Internal
         {
             Entity entity = GetEntityWithoutDependency();
 
-            // Asset library reference buffer         
-            DynamicBuffer<AssetLibraryInternal.ReferenceBufferElement> referenceBuffer = AddBuffer<AssetLibraryInternal.ReferenceBufferElement>(entity);
-
             ArraySegment<AssetLibrary> assetLibraries = this.DependsOnMultiple(authoring.assetLibraries);
-            referenceBuffer.EnsureCapacityTrashOldData(assetLibraries.Count);
 
-            foreach (AssetLibrary assetLibrary in assetLibraries)
+            if (assetLibraries.Count != 0)
             {
-                _ = referenceBuffer.AddNoResize(new AssetLibraryInternal.ReferenceBufferElement() { AssetLibrary = assetLibrary });
+                foreach (AssetLibrary assetLibrary in assetLibraries)
+                {
+                    // Depends on asset in library
+                    _ = this.DependsOnMultiple(assetLibrary.assets);
+                }
+
+                // Asset library reference buffer         
+                DynamicBuffer<AssetLibraryInternal.ReferenceBufferElement> referenceBuffer = AddBuffer<AssetLibraryInternal.ReferenceBufferElement>(entity);
+                referenceBuffer.EnsureCapacityTrashOldData(assetLibraries.Count);
+
+                foreach (AssetLibrary assetLibrary in assetLibraries)
+                {
+                    _ = referenceBuffer.AddNoResize(new AssetLibraryInternal.ReferenceBufferElement()
+                    {
+                        AssetLibrary = assetLibrary
+                    });
+                }
             }
         }
     }

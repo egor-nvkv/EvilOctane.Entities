@@ -3,7 +3,7 @@ using Unity.Entities;
 
 namespace EvilOctane.Entities.Internal
 {
-    [UpdateAfter(typeof(AssetLibraryCopyListsSystem))]
+    [UpdateAfter(typeof(AssetLibraryCopyBuffersSystem))]
     [UpdateInGroup(typeof(AssetLibraryBakingSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
     public partial struct AssetLibraryCreateTablesSystem : ISystem

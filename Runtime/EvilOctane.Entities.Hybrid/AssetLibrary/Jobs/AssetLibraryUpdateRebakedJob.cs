@@ -19,7 +19,7 @@ namespace EvilOctane.Entities.Internal
 
         [ReadOnly]
         public ComponentTypeHandle<AssetLibraryInternal.Reference> ReferenceTypeHandle;
-        public BufferTypeHandle<AssetLibraryInternal.ConsumerEntityBufferElement> ConsumerEntityBufferTypeHandle;
+        public BufferTypeHandle<AssetLibraryInternal.ConsumerBufferElement> ConsumerBufferTypeHandle;
 
         [ReadOnly]
         public NativeReference<AssetLibraryConsumerEntityListTable> BakedReferenceTableRef;
@@ -41,7 +41,7 @@ namespace EvilOctane.Entities.Internal
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
             AssetLibraryInternal.Reference* referencePtr = chunk.GetRequiredComponentDataPtrROTyped(ref ReferenceTypeHandle);
-            BufferAccessor<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBufferAccessor = chunk.GetBufferAccessorRW(ref ConsumerEntityBufferTypeHandle);
+            BufferAccessor<AssetLibraryInternal.ConsumerBufferElement> consumerBufferAccessor = chunk.GetBufferAccessorRW(ref ConsumerBufferTypeHandle);
 
             Entity* entitiesToUpdatePtr = stackalloc Entity[TypeManager.MaximumChunkCapacity];
 
@@ -49,7 +49,7 @@ namespace EvilOctane.Entities.Internal
                 in chunk,
                 entityPtr,
                 referencePtr,
-                ref consumerEntityBufferAccessor,
+                ref consumerBufferAccessor,
                 entitiesToUpdatePtr);
 
             if (entitiesToUpdateCount == 0)
@@ -71,7 +71,7 @@ namespace EvilOctane.Entities.Internal
             in ArchetypeChunk chunk,
             Entity* entityPtr,
             AssetLibraryInternal.Reference* referencePtr,
-            ref BufferAccessor<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBufferAccessor,
+            ref BufferAccessor<AssetLibraryInternal.ConsumerBufferElement> consumerBufferAccessor,
             Entity* entitiesToUpdatePtr)
         {
             int entitiesToUpdateCount = 0;
@@ -94,13 +94,13 @@ namespace EvilOctane.Entities.Internal
                 entitiesToUpdatePtr[entitiesToUpdateCount++] = entity;
 
                 // Add newly baked consumers
-                DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer = consumerEntityBufferAccessor[entityIndex];
+                DynamicBuffer<AssetLibraryInternal.ConsumerBufferElement> consumerBuffer = consumerBufferAccessor[entityIndex];
 
-                int oldLength = consumerEntityBuffer.Length;
-                consumerEntityBuffer.EnsureCapacity(oldLength + consumerEntityList.AsRef.Length);
+                int oldLength = consumerBuffer.Length;
+                consumerBuffer.EnsureCapacity(oldLength + consumerEntityList.AsRef.Length);
 
                 // Ptr won't move
-                UnsafeSpan<Entity> existingConsumerEntitySpan = consumerEntityBuffer.AsSpanRO()[..oldLength].Reinterpret<Entity>();
+                UnsafeSpan<Entity> existingConsumerEntitySpan = consumerBuffer.AsSpanRO()[..oldLength].Reinterpret<Entity>();
 
                 foreach (Entity consumerEntity in consumerEntityList.AsRef)
                 {
@@ -111,9 +111,9 @@ namespace EvilOctane.Entities.Internal
                     }
 
                     // Add consumer
-                    _ = consumerEntityBuffer.AddNoResize(new AssetLibraryInternal.ConsumerEntityBufferElement()
+                    _ = consumerBuffer.AddNoResize(new AssetLibraryInternal.ConsumerBufferElement()
                     {
-                        ConsumerEntity = consumerEntity
+                        Entity = consumerEntity
                     });
                 }
             }

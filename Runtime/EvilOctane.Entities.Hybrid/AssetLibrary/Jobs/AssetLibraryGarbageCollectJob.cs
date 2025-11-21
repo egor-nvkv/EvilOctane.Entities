@@ -19,7 +19,7 @@ namespace EvilOctane.Entities.Internal
 
         [ReadOnly]
         public ComponentTypeHandle<AssetLibraryInternal.Reference> ReferenceTypeHandle;
-        public BufferTypeHandle<AssetLibraryInternal.ConsumerEntityBufferElement> ConsumerEntityBufferTypeHandle;
+        public BufferTypeHandle<AssetLibraryInternal.ConsumerBufferElement> ConsumerBufferTypeHandle;
 
         public BufferLookup<AssetLibrary.EntityBufferElement> AssetLibraryEntityBufferLookup;
 
@@ -40,66 +40,7 @@ namespace EvilOctane.Entities.Internal
         }
 
         [SkipLocalsInit]
-        public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
-        {
-            Assert.IsFalse(useEnabledMask);
-
-            Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
-
-            AssetLibraryInternal.Reference* referencePtr = chunk.GetRequiredComponentDataPtrROTyped(ref ReferenceTypeHandle);
-            BufferAccessor<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBufferAccessor = chunk.GetBufferAccessorRW(ref ConsumerEntityBufferTypeHandle);
-
-            int* invalidEntityIndexPtr = stackalloc int[TypeManager.MaximumChunkCapacity];
-            int invalidEntityCount = 0;
-            int* setToInvalidEntityIndexPtr = stackalloc int[TypeManager.MaximumChunkCapacity];
-            int setToInvalidCount = 0;
-
-            // Valid Entity index stackalloc scope
-            {
-                int* validEntityIndexPtr = stackalloc int[TypeManager.MaximumChunkCapacity];
-                int validEntityCount = 0;
-
-                SplitEntityIndices(
-                    in chunk,
-                    referencePtr,
-                    validEntityIndexPtr,
-                    ref validEntityCount,
-                    invalidEntityIndexPtr,
-                    ref invalidEntityCount);
-
-                CheckAccessibleFromConsumers(
-                    entityPtr,
-                    ref consumerEntityBufferAccessor,
-                    validEntityIndexPtr,
-                    validEntityCount,
-                    setToInvalidEntityIndexPtr,
-                    ref setToInvalidCount);
-            }
-
-            bool allValid = invalidEntityCount + setToInvalidCount == 0;
-
-            if (Hint.Likely(allValid))
-            {
-                // All valid
-                return;
-            }
-
-            CleanupConsumersOfInvalid(
-                entityPtr,
-                ref consumerEntityBufferAccessor,
-                invalidEntityIndexPtr,
-                invalidEntityCount);
-
-            DestroyInvalid(
-                entityPtr,
-                invalidEntityIndexPtr,
-                invalidEntityCount,
-                setToInvalidEntityIndexPtr,
-                setToInvalidCount);
-        }
-
-        [SkipLocalsInit]
-        private void SplitEntityIndices(
+        private static void SplitEntityIndices(
             in ArchetypeChunk chunk,
             AssetLibraryInternal.Reference* referencePtr,
             int* validEntityIndexPtr,
@@ -126,9 +67,69 @@ namespace EvilOctane.Entities.Internal
             }
         }
 
+        [SkipLocalsInit]
+        public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+        {
+            Assert.IsFalse(useEnabledMask);
+
+            Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
+
+            AssetLibraryInternal.Reference* referencePtr = chunk.GetRequiredComponentDataPtrROTyped(ref ReferenceTypeHandle);
+            BufferAccessor<AssetLibraryInternal.ConsumerBufferElement> consumerBufferAccessor = chunk.GetBufferAccessorRW(ref ConsumerBufferTypeHandle);
+
+            int* invalidEntityIndexPtr = stackalloc int[TypeManager.MaximumChunkCapacity];
+            int invalidEntityCount = 0;
+
+            int* setToInvalidEntityIndexPtr = stackalloc int[TypeManager.MaximumChunkCapacity];
+            int setToInvalidCount = 0;
+
+            // Valid Entity index stackalloc scope
+            {
+                int* validEntityIndexPtr = stackalloc int[TypeManager.MaximumChunkCapacity];
+                int validEntityCount = 0;
+
+                SplitEntityIndices(
+                    in chunk,
+                    referencePtr,
+                    validEntityIndexPtr,
+                    ref validEntityCount,
+                    invalidEntityIndexPtr,
+                    ref invalidEntityCount);
+
+                CheckAccessibleFromConsumers(
+                    entityPtr,
+                    ref consumerBufferAccessor,
+                    validEntityIndexPtr,
+                    validEntityCount,
+                    setToInvalidEntityIndexPtr,
+                    ref setToInvalidCount);
+            }
+
+            bool allValid = invalidEntityCount + setToInvalidCount == 0;
+
+            if (Hint.Likely(allValid))
+            {
+                // All valid
+                return;
+            }
+
+            CleanupConsumersOfInvalid(
+                entityPtr,
+                ref consumerBufferAccessor,
+                invalidEntityIndexPtr,
+                invalidEntityCount);
+
+            DestroyInvalid(
+                entityPtr,
+                invalidEntityIndexPtr,
+                invalidEntityCount,
+                setToInvalidEntityIndexPtr,
+                setToInvalidCount);
+        }
+
         private void CheckAccessibleFromConsumers(
             Entity* entityPtr,
-            ref BufferAccessor<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBufferAccessor,
+            ref BufferAccessor<AssetLibraryInternal.ConsumerBufferElement> consumerBufferAccessor,
             int* validEntityIndexPtr,
             int validEntityCount,
             int* setToInvalidEntityIndexPtr,
@@ -140,13 +141,13 @@ namespace EvilOctane.Entities.Internal
                 Entity entity = entityPtr[entityIndex];
 
                 // Check whether we're still referenced by something
-                DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer = consumerEntityBufferAccessor[entityIndex];
+                DynamicBuffer<AssetLibraryInternal.ConsumerBufferElement> consumerBuffer = consumerBufferAccessor[entityIndex];
 
-                for (int consumerIndex = 0; consumerIndex != consumerEntityBuffer.Length;)
+                for (int consumerIndex = 0; consumerIndex != consumerBuffer.Length;)
                 {
-                    AssetLibraryInternal.ConsumerEntityBufferElement consumerEntity = consumerEntityBuffer[consumerIndex];
+                    AssetLibraryInternal.ConsumerBufferElement consumerEntity = consumerBuffer[consumerIndex];
 
-                    if (!AssetLibraryEntityBufferLookup.TryGetBuffer(consumerEntity.ConsumerEntity, out DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer))
+                    if (!AssetLibraryEntityBufferLookup.TryGetBuffer(consumerEntity.Entity, out DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer))
                     {
                         // No asset library references
                         goto Remove;
@@ -164,10 +165,10 @@ namespace EvilOctane.Entities.Internal
                     continue;
 
                 Remove:
-                    consumerEntityBuffer.RemoveAtSwapBack(consumerIndex);
+                    consumerBuffer.RemoveAtSwapBack(consumerIndex);
                 }
 
-                bool stillAccessible = !consumerEntityBuffer.IsEmpty;
+                bool stillAccessible = !consumerBuffer.IsEmpty;
 
                 if (!stillAccessible)
                 {
@@ -179,7 +180,7 @@ namespace EvilOctane.Entities.Internal
 
         private void CleanupConsumersOfInvalid(
             Entity* entityPtr,
-            ref BufferAccessor<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBufferAccessor,
+            ref BufferAccessor<AssetLibraryInternal.ConsumerBufferElement> consumerBufferAccessor,
             int* invalidEntityIndexPtr,
             int invalidEntityCount)
         {
@@ -189,18 +190,18 @@ namespace EvilOctane.Entities.Internal
                 Entity entity = entityPtr[entityIndex];
 
                 // Clean up whoever is still referencing us
-                DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer = consumerEntityBufferAccessor[entityIndex];
+                DynamicBuffer<AssetLibraryInternal.ConsumerBufferElement> consumerBuffer = consumerBufferAccessor[entityIndex];
 
-                foreach (AssetLibraryInternal.ConsumerEntityBufferElement consumerEntity in consumerEntityBuffer)
+                foreach (AssetLibraryInternal.ConsumerBufferElement consumerEntity in consumerBuffer)
                 {
-                    if (AssetLibraryEntityBufferLookup.TryGetBuffer(consumerEntity.ConsumerEntity, out DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer))
+                    if (AssetLibraryEntityBufferLookup.TryGetBuffer(consumerEntity.Entity, out DynamicBuffer<AssetLibrary.EntityBufferElement> assetLibraryEntityBuffer))
                     {
                         // Remove reference
                         _ = assetLibraryEntityBuffer.Reinterpret<Entity>().RemoveFirstMatchSwapBack(entity);
                     }
                 }
 
-                consumerEntityBuffer.Clear();
+                consumerBuffer.Clear();
             }
         }
 

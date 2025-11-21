@@ -1,3 +1,4 @@
+using EvilOctane.Collections;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -23,7 +24,7 @@ namespace EvilOctane.Entities.Internal
 
         public void Execute()
         {
-            foreach (Collections.KeyValueRef<UnityObjectRef<AssetLibrary>, UnsafeList<Entity>> kvPair in BakedReferenceTableRef.Value)
+            foreach (KeyValueRef<UnityObjectRef<AssetLibrary>, UnsafeList<Entity>> kvPair in BakedReferenceTableRef.Value)
             {
                 Entity entity = CommandBuffer.CreateEntity(ThreadIndex, AssetLibraryArchetype);
 
@@ -36,10 +37,10 @@ namespace EvilOctane.Entities.Internal
                 // Consumer buffer
 
                 UnsafeSpan<Entity> consumerEntitySpan = kvPair.ValueRef.AsSpan();
-                DynamicBuffer<AssetLibraryInternal.ConsumerEntityBufferElement> consumerEntityBuffer = CommandBuffer.SetBuffer<AssetLibraryInternal.ConsumerEntityBufferElement>(ThreadIndex, entity);
+                DynamicBuffer<AssetLibraryInternal.ConsumerBufferElement> consumerBuffer = CommandBuffer.SetBuffer<AssetLibraryInternal.ConsumerBufferElement>(ThreadIndex, entity);
 
-                consumerEntityBuffer.ResizeUninitializedTrashOldData(consumerEntitySpan.Length);
-                consumerEntityBuffer.AsSpanRW().Reinterpret<Entity>().CopyFrom(consumerEntitySpan);
+                consumerBuffer.ResizeUninitializedTrashOldData(consumerEntitySpan.Length);
+                consumerBuffer.AsSpanRW().Reinterpret<Entity>().CopyFrom(consumerEntitySpan);
             }
         }
     }
