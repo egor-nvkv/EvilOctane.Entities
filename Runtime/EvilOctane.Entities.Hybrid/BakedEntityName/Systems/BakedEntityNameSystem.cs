@@ -17,8 +17,8 @@ namespace EvilOctane.Entities.Internal
 
                 Query<
                     RefRO<BakedEntityNameComponent>>()
-                .WithAll<
-                    PropagateBakedEntityNameTag>()
+                .WithPresent<
+                    BakedEntityNameComponent.PropagateTag>()
                 .WithEntityAccess()
                 .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities))
             {

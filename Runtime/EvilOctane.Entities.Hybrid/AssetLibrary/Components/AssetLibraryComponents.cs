@@ -1,28 +1,56 @@
-using System.Runtime.InteropServices;
+using System;
 using Unity.Entities;
 
 namespace EvilOctane.Entities
 {
     public partial class AssetLibrary
     {
-        /// <summary>
-        /// A reference to a baked <see cref=nameof(AssetLibrary)/>.
-        /// </summary>
         [BakingType]
-        public struct EntityBufferElement : IBufferElementData
+        public struct AliveTag : ICleanupComponentsAliveTag { }
+
+        [BakingType]
+        public struct UnityObjectComponent : IComponentData
         {
-            public Entity AssetLibrary;
+            public UnityObjectRef<AssetLibrary> Value;
         }
 
         /// <summary>
-        /// The unmanaged data of a baked <see cref=nameof(AssetLibrary)/>.
+        /// A reference to a baked <see cref="AssetLibrary"/>.
         /// </summary>
         [BakingType]
-        [InternalBufferCapacity(0)]
-        [StructLayout(LayoutKind.Sequential, Size = 1)]
-        public struct Storage : IBufferElementData
+        public struct ReferenceBufferElement : IBufferElementData
         {
-            public byte RawByte;
+            public Entity Entity;
+        }
+
+        [BakingType]
+        [InternalBufferCapacity(0)]
+        public struct AssetBufferElement : IOwnedEntityBufferElementData
+        {
+            public Entity Entity;
+
+            public readonly Entity OwnedEntity => Entity;
+
+            public struct OwnerShared : ISharedComponentData, IEquatable<OwnerShared>
+            {
+                public Entity AssetLibrary;
+
+                public readonly bool Equals(OwnerShared other)
+                {
+                    return AssetLibrary == other.AssetLibrary;
+                }
+
+                public override readonly int GetHashCode()
+                {
+                    return AssetLibrary.GetHashCode();
+                }
+            }
+        }
+
+        [BakingType]
+        public struct AssetTableComponent : ICleanupComponentData
+        {
+            public AssetTable Value;
         }
     }
 }

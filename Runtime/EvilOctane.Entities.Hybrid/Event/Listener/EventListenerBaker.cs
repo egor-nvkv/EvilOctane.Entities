@@ -24,7 +24,7 @@ namespace EvilOctane.Entities
 
             // Subscribe
 
-            Span<EventFirerAuthoring> eventFirers = this.DependsOnMultiple(authoring.eventFirersToSubscribe);
+            Span<EventFirerAuthoring> eventFirers = this.DependsOnMultiple(authoring.eventFirersToSubscribe, unique: true);
 
             DynamicBuffer<EventListener.EventSubscribeBuffer.SubscribeAutoElement> subscribeBuffer = AddBuffer<EventListener.EventSubscribeBuffer.SubscribeAutoElement>(entity);
             subscribeBuffer.EnsureCapacityTrashOldData(eventFirers.Length);

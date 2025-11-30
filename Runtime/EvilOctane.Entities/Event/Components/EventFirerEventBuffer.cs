@@ -8,7 +8,7 @@ namespace EvilOctane.Entities
         public struct EventBuffer
         {
             [InternalBufferCapacity(0)]
-            public struct EntityElement : IEntityOwnerBufferElementData
+            public struct EntityElement : IOwnedEntityBufferElementData
             {
                 public Entity EventEntity;
 

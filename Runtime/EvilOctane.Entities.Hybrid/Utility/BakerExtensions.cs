@@ -7,7 +7,21 @@ namespace EvilOctane.Entities
 {
     public static partial class BakerExtensions
     {
-        public static ArraySegment<T> DependsOnMultiple<T>(this IBaker self, IList<T> dependencies)
+        public static void DependsOnMultiple<T>(this IBaker self, IList<T> dependencies)
+            where T : UnityObject
+        {
+            if (dependencies == null)
+            {
+                return;
+            }
+
+            foreach (T dependency in dependencies)
+            {
+                _ = self.DependsOn(dependency);
+            }
+        }
+
+        public static ArraySegment<T> DependsOnMultiple<T>(this IBaker self, IList<T> dependencies, bool unique)
             where T : UnityObject
         {
             if (dependencies == null)
@@ -24,10 +38,31 @@ namespace EvilOctane.Entities
             {
                 T resultDependency = self.DependsOn(dependency);
 
-                if (resultDependency)
+                if (!resultDependency)
                 {
-                    resultDependencies[resultCount++] = resultDependency;
+                    continue;
                 }
+
+                if (unique)
+                {
+                    bool duplicate = false;
+
+                    for (int index = 0; index != resultCount; ++index)
+                    {
+                        if (resultDependency == resultDependencies[index])
+                        {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+
+                    if (duplicate)
+                    {
+                        continue;
+                    }
+                }
+
+                resultDependencies[resultCount++] = resultDependency;
             }
 
             return new ArraySegment<T>(resultDependencies, 0, resultCount);

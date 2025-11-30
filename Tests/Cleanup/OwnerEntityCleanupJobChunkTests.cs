@@ -6,7 +6,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 
-[assembly: RegisterGenericJobType(typeof(OwnerEntityCleanupJobChunk<OwnerEntityComponent, EntityOwnerBufferElement>))]
+[assembly: RegisterGenericJobType(typeof(OwnerEntityCleanupJob<OwnerEntityComponent, OwnedEntityBufferElement>))]
 
 namespace EvilOctane.Entities.Tests
 {
@@ -23,8 +23,8 @@ namespace EvilOctane.Entities.Tests
             Entity ownerEntity = world.EntityManager.CreateEntity();
             Entity ownedEntity = world.EntityManager.CreateEntity();
 
-            DynamicBuffer<EntityOwnerBufferElement> entityOwnerBuffer = world.EntityManager.AddBuffer<EntityOwnerBufferElement>(ownerEntity);
-            _ = entityOwnerBuffer.Add(new EntityOwnerBufferElement() { OwnedEntity = ownedEntity });
+            DynamicBuffer<OwnedEntityBufferElement> entityOwnerBuffer = world.EntityManager.AddBuffer<OwnedEntityBufferElement>(ownerEntity);
+            _ = entityOwnerBuffer.Add(new OwnedEntityBufferElement() { OwnedEntity = ownedEntity });
 
             _ = world.EntityManager.AddComponent<IsAliveTag>(ownerEntity);
 
@@ -34,7 +34,7 @@ namespace EvilOctane.Entities.Tests
             // Update with Allocated Tag present
             world.Update();
 
-            Assert.AreEqual(ownedEntity, world.EntityManager.GetBuffer<EntityOwnerBufferElement>(ownerEntity)[0].OwnedEntity);
+            Assert.AreEqual(ownedEntity, world.EntityManager.GetBuffer<OwnedEntityBufferElement>(ownerEntity)[0].OwnedEntity);
             Assert.IsTrue(world.EntityManager.HasComponent<OwnerEntityComponent>(ownedEntity));
 
             // Remove Allocated Tag
@@ -43,7 +43,7 @@ namespace EvilOctane.Entities.Tests
             // Update with Allocated Tag removed
             world.Update();
 
-            Assert.IsTrue(world.EntityManager.GetBuffer<EntityOwnerBufferElement>(ownerEntity).IsEmpty, "EntityOwnerBuffer element was not removed.");
+            Assert.IsTrue(world.EntityManager.GetBuffer<OwnedEntityBufferElement>(ownerEntity).IsEmpty, "EntityOwnerBuffer element was not removed.");
             Assert.IsFalse(world.EntityManager.HasComponent<OwnerEntityComponent>(ownedEntity), "OwnerEntityComponent was not removed.");
         }
     }
@@ -70,11 +70,11 @@ namespace EvilOctane.Entities.Tests
 
             EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
 
-            new OwnerEntityCleanupJobChunk<OwnerEntityComponent, EntityOwnerBufferElement>()
+            new OwnerEntityCleanupJob<OwnerEntityComponent, OwnedEntityBufferElement>()
             {
                 EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
                 OwnerEntityComponentTypeHandle = SystemAPI.GetComponentTypeHandle<OwnerEntityComponent>(isReadOnly: true),
-                EntityOwnerBufferLookup = SystemAPI.GetBufferLookup<EntityOwnerBufferElement>(),
+                OwnedEntityBufferLookup = SystemAPI.GetBufferLookup<OwnedEntityBufferElement>(),
                 CommandBuffer = commandBuffer
             }.Run(query);
 

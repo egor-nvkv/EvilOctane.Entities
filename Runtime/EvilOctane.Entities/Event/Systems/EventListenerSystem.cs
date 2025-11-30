@@ -5,7 +5,7 @@ using Unity.Entities;
 using Unity.Jobs;
 using static Unity.Entities.SystemAPI;
 
-[assembly: RegisterGenericJobType(typeof(BufferClearJobChunk<EventListener.EventReceiveBuffer.Element>))]
+[assembly: RegisterGenericJobType(typeof(ClearBuffersJob<EventListener.EventReceiveBuffer.Element>))]
 
 namespace EvilOctane.Entities
 {
@@ -58,7 +58,7 @@ namespace EvilOctane.Entities
                 CommandBuffer = commandBuffer.AsParallelWriter()
             }.ScheduleParallel(setupQuery, state.Dependency);
 
-            JobHandle clearJobHandle = new BufferClearJobChunk<EventListener.EventReceiveBuffer.Element>()
+            JobHandle clearJobHandle = new ClearBuffersJob<EventListener.EventReceiveBuffer.Element>()
             {
                 BufferTypeHandle = GetBufferTypeHandle<EventListener.EventReceiveBuffer.Element>()
             }.ScheduleParallel(clearReceiveBufferQuery, state.Dependency);

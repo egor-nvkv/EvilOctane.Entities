@@ -7,7 +7,7 @@ namespace EvilOctane.Entities
     /// </summary>
     /// 
     /// <remarks>
-    /// <see cref="IEntityOwnerBufferElementData"/> can be used on owner <see cref="Entity"/>
+    /// <see cref="IOwnedEntityBufferElementData"/> can be used on owner <see cref="Entity"/>
     /// as a means of managing owned <see cref="Entity"/>'s lifetime.
     /// <br/>
     /// Multiple <see cref="IComponentData"/> implementing <see cref="IOwnerEntityComponentData"/>

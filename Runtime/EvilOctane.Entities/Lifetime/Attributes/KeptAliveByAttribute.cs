@@ -12,11 +12,11 @@ namespace EvilOctane.Entities
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true, Inherited = false)]
     public class KeptAliveByAttribute : Attribute
     {
-        public readonly Type IsAliveTag;
+        public readonly Type AliveTag;
 
-        public KeptAliveByAttribute(Type isAliveTag)
+        public KeptAliveByAttribute(Type aliveTag)
         {
-            IsAliveTag = isAliveTag;
+            AliveTag = aliveTag;
         }
     }
 }
