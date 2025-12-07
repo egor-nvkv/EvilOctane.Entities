@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityObject = UnityEngine.Object;
 
 namespace EvilOctane.Entities.Editor
@@ -22,17 +22,11 @@ namespace EvilOctane.Entities.Editor
                 return 0;
             }
 
-            Type xType = x.GetType();
-            Type yType = x.GetType();
+            string pathX = AssetDatabase.GetAssetPath(x.GetEntityId());
+            string pathY = AssetDatabase.GetAssetPath(y.GetEntityId());
 
-            if (xType != yType)
-            {
-                // Order by type
-                return ((long)xType.TypeHandle.Value).CompareTo((long)yType.TypeHandle.Value);
-            }
-
-            // Order by name
-            return x.name.CompareTo(y.name);
+            // Order by path
+            return pathX.CompareTo(pathY);
         }
     }
 }

@@ -9,9 +9,9 @@ using static Unity.Entities.SystemAPI;
 
 namespace EvilOctane.Entities.Internal
 {
-    [UpdateInGroup(typeof(AssetLibraryBeforeAssetBakingSystemGroup))]
+    [UpdateInGroup(typeof(AssetLibraryLifetimeSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-    public partial struct AssetLibraryReferenceSystem : ISystem
+    public partial struct AssetLibraryLifetimeSystem : ISystem
     {
         private EntityArchetype assetLibraryArchetype;
 
@@ -21,14 +21,17 @@ namespace EvilOctane.Entities.Internal
             assetLibraryArchetype = state.EntityManager.CreateArchetype(stackalloc ComponentType[]
             {
                 ComponentType.ReadWrite<BakingOnlyEntity>(),
-                ComponentType.ReadWrite<RebakedTag>(),
+
+                ComponentType.ReadWrite<BakedEntityNameComponent>(),
+                ComponentType.ReadWrite<BakedEntityNameComponent.PropagateTag>(),
 
                 ComponentType.ReadWrite<AssetLibrary.AliveTag>(),
+                ComponentType.ReadWrite<AssetLibrary.RebakedTag>(),
                 ComponentType.ReadWrite<AssetLibrary.UnityObjectComponent>(),
                 ComponentType.ReadWrite<AssetLibrary.AssetBufferElement>(),
                 ComponentType.ReadWrite<AssetLibrary.AssetTableComponent>(),
 
-                ComponentType.ReadWrite<AssetLibraryInternal.TempAssetBufferElement>()
+                ComponentType.ReadWrite<AssetLibraryInternal.AssetReferenceBufferElement>()
             });
         }
 
@@ -39,7 +42,7 @@ namespace EvilOctane.Entities.Internal
                 ref state,
                 out NativeReference<AssetLibraryConsumerTable> consumerTableRef);
 
-            CreateInstances(
+            CreateEntities(
                 ref state,
                 instanceTableRef,
                 consumerTableRef);
@@ -72,7 +75,7 @@ namespace EvilOctane.Entities.Internal
             consumerTableRef = new(new AssetLibraryConsumerTable(100, state.WorldUpdateAllocator), state.WorldUpdateAllocator);
             NativeReference<AssetLibraryRebakedSet> rebakedSetRef = new(new AssetLibraryRebakedSet(50, state.WorldUpdateAllocator), state.WorldUpdateAllocator);
 
-            new AssetLibraryGatherDeclaredReferenceJob()
+            new AssetLibraryGatherReferencesJob()
             {
                 ConsumerTableRef = consumerTableRef,
                 RebakedSetRef = rebakedSetRef
@@ -93,15 +96,15 @@ namespace EvilOctane.Entities.Internal
             return instanceTableRef;
         }
 
-        private void CreateInstances(
+        private void CreateEntities(
             ref SystemState state,
             NativeReference<AssetLibraryInstanceTable> instanceTableRef,
             NativeReference<AssetLibraryConsumerTable> consumerTableRef)
         {
             ExclusiveEntityTransaction transaction = state.EntityManager.BeginExclusiveEntityTransaction();
 
-            // Create instances
-            new AssetLibraryCreateInstancesJob()
+            // Create entities
+            new AssetLibraryCreateJob()
             {
                 InstanceTableRef = instanceTableRef,
                 ConsumerTableRef = consumerTableRef,
@@ -119,7 +122,7 @@ namespace EvilOctane.Entities.Internal
             // Update references
             new AssetLibraryUpdateReferencesJob()
             {
-                DeclaredReferenceLookup = GetComponentLookup<AssetLibraryInternal.DeclaredReference>(isReadOnly: true),
+                DeclaredReferenceLookup = GetComponentLookup<AssetLibraryConsumerAdditional.DeclaredReference>(isReadOnly: true),
                 InstanceTableRef = instanceTableRef
             }.ScheduleParallel();
         }
@@ -131,8 +134,8 @@ namespace EvilOctane.Entities.Internal
             EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
             EntityCommandBuffer.ParallelWriter parallelWriter = commandBuffer.AsParallelWriter();
 
-            // Garbage collection
-            state.Dependency = new AssetLibraryGarbageCollectionJob()
+            // GC
+            state.Dependency = new AssetLibraryGCJob()
             {
                 EntityTypeHandle = GetEntityTypeHandle(),
                 UnityObjectLookup = GetComponentTypeHandle<AssetLibrary.UnityObjectComponent>(isReadOnly: true),

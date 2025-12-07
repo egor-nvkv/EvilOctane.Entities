@@ -11,10 +11,10 @@ namespace EvilOctane.Entities.Internal
             Entity entity = GetEntityWithoutDependency();
 
             // Rebaked
-            AddComponent<RebakedTag>(entity);
+            AddComponent<AssetLibraryConsumer.RebakedTag>(entity);
 
-            // Reference buffer
-            _ = AddBuffer<AssetLibrary.ReferenceBufferElement>(entity);
+            // Asset library buffer
+            _ = AddBuffer<AssetLibraryConsumer.AssetLibraryBufferElement>(entity);
         }
     }
 }

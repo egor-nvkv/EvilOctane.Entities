@@ -4,18 +4,44 @@ namespace EvilOctane.Entities.Internal
 {
     public static class AssetLibraryBakingAPI
     {
-        public static void BakeAssetLibrary(IBaker baker, AssetLibraryReferenceAuthoring authoring)
+        public static bool BakeAssetLibrary(IBaker baker, AssetLibraryReferenceAuthoring authoring)
         {
-            if (baker.DependsOn(authoring.assetLibrary))
+            if (DependsOnAssetLibraryAndAssets(baker, authoring))
             {
-                AssetLibrary assetLibrary = authoring.assetLibrary;
-
-                // Assets
-                baker.DependsOnMultiple(assetLibrary.assets);
-
                 // Reference
                 DeclareReference(baker, authoring);
+
+                return true;
             }
+
+            return false;
+        }
+
+        public static bool DependsOnAssetLibraryAndAssets(IBaker baker, AssetLibraryReferenceAuthoring authoring)
+        {
+            AssetLibrary assetLibrary = baker.DependsOn(authoring.assetLibrary);
+            bool result = assetLibrary;
+
+            if (result)
+            {
+                // Assets
+                baker.DependsOnMultiple(assetLibrary.assets);
+            }
+
+            return result;
+        }
+
+        public static bool DependsOnAssetLibrariesAndAssets(IBaker baker)
+        {
+            AssetLibraryReferenceAuthoring[] authoringArray = baker.GetComponents<AssetLibraryReferenceAuthoring>();
+            bool result = false;
+
+            foreach (AssetLibraryReferenceAuthoring authoring in authoringArray)
+            {
+                result |= DependsOnAssetLibraryAndAssets(baker, authoring);
+            }
+
+            return result;
         }
 
         private static void DeclareReference(IBaker baker, AssetLibraryReferenceAuthoring authoring)
@@ -26,10 +52,10 @@ namespace EvilOctane.Entities.Internal
             Entity entity = baker.CreateAdditionalEntity(TransformUsageFlags.None, bakingOnlyEntity: true, entityName);
 
             // Rebaked
-            baker.AddComponent<RebakedTag>(entity);
+            baker.AddComponent<AssetLibraryConsumerAdditional.RebakedTag>(entity);
 
             // Reference
-            baker.AddComponent(entity, new AssetLibraryInternal.DeclaredReference()
+            baker.AddComponent(entity, new AssetLibraryConsumerAdditional.DeclaredReference()
             {
                 AssetLibrary = assetLibrary
             });

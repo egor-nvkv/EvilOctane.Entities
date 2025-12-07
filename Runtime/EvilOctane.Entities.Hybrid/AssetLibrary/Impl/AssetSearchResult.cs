@@ -2,8 +2,8 @@ namespace EvilOctane.Entities
 {
     public enum AssetSearchResult
     {
-        Found,
         NotFound,
+        Found,
         MultipleExist,
         NameIsEmpty
     }

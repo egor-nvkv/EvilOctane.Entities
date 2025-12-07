@@ -291,6 +291,94 @@ namespace Unity.Entities.LowLevel.Unsafe
             RemoveComponent(self, sortKey, entities.Ptr, entities.Length, in componentTypeSet);
         }
 
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.ParallelWriter.AddSharedComponent{T}(int, NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="sortKey"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="sharedComponent"></param>
+        public static void AddSharedComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, Entity* entities, int length, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            CheckWriteAccess(self);
+
+            EntityCommandBufferChain* chain = GetThreadChain(self);
+            Entity* entitiesCopy = self.m_Data->CloneAndSearchForDeferredEntities(entities, length, out bool containsDeferredEntities);
+            bool isDefaultObject = EntityCommandBufferExtensions.IsDefaultObjectUnmanaged(ref sharedComponent, out int hashCode);
+
+            _ = self.m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                chain,
+                sortKey,
+                ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                entitiesCopy,
+                length,
+                containsDeferredEntities,
+                hashCode,
+                isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.ParallelWriter.AddSharedComponent{T}(int, NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="sortKey"></param>
+        /// <param name="entities"></param>
+        /// <param name="sharedComponent"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddSharedComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, UnsafeSpan<Entity> entities, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            AddSharedComponent(self, sortKey, entities.Ptr, entities.Length, sharedComponent);
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.ParallelWriter.SetSharedComponent{T}(int, NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="sortKey"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="sharedComponent"></param>
+        public static void SetSharedComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, Entity* entities, int length, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            CheckWriteAccess(self);
+
+            EntityCommandBufferChain* chain = GetThreadChain(self);
+            Entity* entitiesCopy = self.m_Data->CloneAndSearchForDeferredEntities(entities, length, out bool containsDeferredEntities);
+            bool isDefaultObject = EntityCommandBufferExtensions.IsDefaultObjectUnmanaged(ref sharedComponent, out int hashCode);
+
+            _ = self.m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                chain,
+                sortKey,
+                ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                entitiesCopy,
+                length,
+                containsDeferredEntities,
+                hashCode,
+                isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.ParallelWriter.SetSharedComponent{T}(int, NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="sortKey"></param>
+        /// <param name="entities"></param>
+        /// <param name="sharedComponent"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetSharedComponent<T>(this EntityCommandBuffer.ParallelWriter self, int sortKey, UnsafeSpan<Entity> entities, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            SetSharedComponent(self, sortKey, entities.Ptr, entities.Length, sharedComponent);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static EntityCommandBufferChain* GetThreadChain(EntityCommandBuffer.ParallelWriter parallelWriter)
         {

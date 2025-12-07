@@ -9,7 +9,7 @@ using static System.Runtime.CompilerServices.Unsafe;
 namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
-    public struct AssetLibraryCreateInstancesJob : IJob
+    public struct AssetLibraryCreateJob : IJob
     {
         public NativeReference<AssetLibraryInstanceTable> InstanceTableRef;
 

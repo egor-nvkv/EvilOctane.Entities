@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 
 namespace Unity.Entities
 {
-    public static unsafe class SystemStateExtensions
+    public static unsafe partial class SystemStateExtensions
     {
         /// <summary>
         /// <inheritdoc cref="SystemState.RequireAnyForUpdate(EntityQuery[])"/>

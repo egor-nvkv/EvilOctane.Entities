@@ -3,43 +3,40 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.LowLevel.Unsafe;
-using static EvilOctane.Entities.AssetLibraryAPI;
-using static System.Runtime.CompilerServices.Unsafe;
+using static EvilOctane.Entities.AssetLibraryLowLevelAPI;
 using static Unity.Entities.SystemAPI;
 using UnityObject = UnityEngine.Object;
 
 namespace EvilOctane.Entities.Internal
 {
-    [UpdateAfter(typeof(AssetLibraryReferenceSystem))]
-    [UpdateInGroup(typeof(AssetLibraryBeforeAssetBakingSystemGroup))]
+    [UpdateAfter(typeof(AssetLibraryLifetimeSystem))]
+    [UpdateInGroup(typeof(AssetLibraryLifetimeSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-    public unsafe partial struct AssetLibrarySystemManaged : ISystem
+    public unsafe partial struct AssetLibraryLifetimeSystemManaged : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {
             foreach ((
+                RefRW<BakedEntityNameComponent> entityName,
                 AssetLibrary.UnityObjectComponent assetLibrary,
-                DynamicBuffer<AssetLibraryInternal.TempAssetBufferElement> tempAssetBuffer,
+                DynamicBuffer<AssetLibraryInternal.AssetReferenceBufferElement> assetReferenceBuffer,
                 Entity entity) in
 
                 Query<
+                    RefRW<BakedEntityNameComponent>,
                     AssetLibrary.UnityObjectComponent,
-                    DynamicBuffer<AssetLibraryInternal.TempAssetBufferElement>>()
+                    DynamicBuffer<AssetLibraryInternal.AssetReferenceBufferElement>>()
                 .WithEntityAccess())
             {
                 AssetLibrary assetLibrarySO = assetLibrary.Value;
 
                 // Entity name
-                SkipInit(out FixedString64Bytes entityName);
-                entityName.Length = 0;
-
-                _ = entityName.CopyFromTruncated(assetLibrarySO.name);
-                state.EntityManager.SetName(entity, entityName);
+                _ = entityName.ValueRW.EntityName.CopyFromTruncated(assetLibrarySO.name);
 
                 // Assets
                 List<UnityObject> assets = assetLibrarySO.assets;
 
-                tempAssetBuffer.Clear();
+                assetReferenceBuffer.Clear();
 
                 if (assets == null)
                 {
@@ -55,7 +52,7 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                tempAssetBuffer.EnsureCapacityTrashOldData(assetCount);
+                assetReferenceBuffer.EnsureCapacityTrashOldData(assetCount);
 
                 foreach (UnityObject asset in assets)
                 {
@@ -65,11 +62,15 @@ namespace EvilOctane.Entities.Internal
                         continue;
                     }
 
-                    _ = tempAssetBuffer.AddNoResize(new AssetLibraryInternal.TempAssetBufferElement()
+                    // Asset reference
+                    _ = assetReferenceBuffer.AddNoResize(new AssetLibraryInternal.AssetReferenceBufferElement()
                     {
-                        Asset = asset,
-                        TypeHash = GetAssetTypeHash(asset.GetType()),
-                        Name = UnsafeTextExtensions2.Create(asset.name, state.WorldUpdateAllocator)
+                        Data = new AssetReferenceData()
+                        {
+                            Name = UnsafeTextExtensions2.Create(asset.name, state.WorldUpdateAllocator),
+                            TypeHash = GetAssetTypeHash(asset.GetType())
+                        },
+                        Asset = asset
                     });
                 }
             }

@@ -272,5 +272,103 @@ namespace Unity.Entities.LowLevel.Unsafe
         {
             RemoveComponent(self, entities.Ptr, entities.Length, in componentTypeSet);
         }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddSharedComponent{T}(NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="sharedComponent"></param>
+        public static void AddSharedComponent<T>(this EntityCommandBuffer self, Entity* entities, int length, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            self.EnforceSingleThreadOwnership();
+            self.AssertDidNotPlayback();
+
+            Entity* entitiesCopy = self.m_Data->CloneAndSearchForDeferredEntities(entities, length, out bool containsDeferredEntities);
+            bool isDefaultObject = IsDefaultObjectUnmanaged(ref sharedComponent, out int hashCode);
+
+            _ = self.m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                &self.m_Data->m_MainThreadChain,
+                self.MainThreadSortKey,
+                ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                entitiesCopy,
+                length,
+                containsDeferredEntities,
+                hashCode,
+                isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.AddSharedComponent{T}(NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="sharedComponent"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddSharedComponent<T>(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            AddSharedComponent(self, entities.Ptr, entities.Length, sharedComponent);
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.SetSharedComponent{T}(NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="length"></param>
+        /// <param name="sharedComponent"></param>
+        public static void SetSharedComponent<T>(this EntityCommandBuffer self, Entity* entities, int length, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            self.EnforceSingleThreadOwnership();
+            self.AssertDidNotPlayback();
+
+            Entity* entitiesCopy = self.m_Data->CloneAndSearchForDeferredEntities(entities, length, out bool containsDeferredEntities);
+            bool isDefaultObject = IsDefaultObjectUnmanaged(ref sharedComponent, out int hashCode);
+
+            _ = self.m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                &self.m_Data->m_MainThreadChain,
+                self.MainThreadSortKey,
+                ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                entitiesCopy,
+                length,
+                containsDeferredEntities,
+                hashCode,
+                isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="EntityCommandBuffer.SetSharedComponent{T}(NativeArray{Entity}, T)"/>
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="entities"></param>
+        /// <param name="sharedComponent"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetSharedComponent<T>(this EntityCommandBuffer self, UnsafeSpan<Entity> entities, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            SetSharedComponent(self, entities.Ptr, entities.Length, sharedComponent);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsDefaultObjectUnmanaged<T>(ref T component, out int hashCode)
+            where T : unmanaged, ISharedComponentData
+        {
+            T defaultValue = new();
+
+            hashCode = TypeManager.SharedComponentGetHashCode(UnsafeUtility.AddressOf(ref component), TypeManager.GetTypeIndex<T>());
+
+            return TypeManager.SharedComponentEquals(
+                UnsafeUtility.AddressOf(ref defaultValue),
+                UnsafeUtility.AddressOf(ref component),
+                TypeManager.GetTypeIndex<T>());
+        }
     }
 }

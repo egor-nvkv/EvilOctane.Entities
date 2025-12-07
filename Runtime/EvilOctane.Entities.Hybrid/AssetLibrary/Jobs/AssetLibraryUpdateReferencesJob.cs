@@ -8,41 +8,42 @@ using static System.Runtime.CompilerServices.Unsafe;
 namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
+    [WithPresent(typeof(AssetLibraryConsumer.RebakedTag))]
     [WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)]
     public partial struct AssetLibraryUpdateReferencesJob : IJobEntity
     {
         [ReadOnly]
-        public ComponentLookup<AssetLibraryInternal.DeclaredReference> DeclaredReferenceLookup;
+        public ComponentLookup<AssetLibraryConsumerAdditional.DeclaredReference> DeclaredReferenceLookup;
 
         [ReadOnly]
         public NativeReference<AssetLibraryInstanceTable> InstanceTableRef;
 
         public void Execute(
             in DynamicBuffer<AdditionalEntitiesBakingData> additionalEntities,
-            ref DynamicBuffer<AssetLibrary.ReferenceBufferElement> referenceBuffer)
+            ref DynamicBuffer<AssetLibraryConsumer.AssetLibraryBufferElement> assetLibraryBuffer)
         {
-            ref AssetLibraryInstanceTable instanceTable = ref AsRef(in InstanceTableRef.GetRefReadOnly());
-            referenceBuffer.Clear();
+            ref AssetLibraryInstanceTable instanceTableRO = ref AsRef(in InstanceTableRef.GetRefReadOnly());
+            assetLibraryBuffer.Clear();
 
             foreach (AdditionalEntitiesBakingData additionalEntity in additionalEntities)
             {
-                if (!DeclaredReferenceLookup.TryGetComponent(additionalEntity.Value, out AssetLibraryInternal.DeclaredReference reference))
+                if (!DeclaredReferenceLookup.TryGetComponent(additionalEntity.Value, out AssetLibraryConsumerAdditional.DeclaredReference reference))
                 {
                     // Component missing
                     continue;
                 }
 
-                Pointer<Entity> instance = instanceTable.Value.TryGet(reference.AssetLibrary, out bool exists);
+                Pointer<Entity> instance = instanceTableRO.Value.TryGet(reference.AssetLibrary, out bool exists);
 
                 if (!exists)
                 {
                     continue;
                 }
 
-                if (!referenceBuffer.AsSpanRO().Reinterpret<Entity>().Contains(instance.AsRef))
+                if (!assetLibraryBuffer.AsSpanRO().Reinterpret<Entity>().Contains(instance.AsRef))
                 {
                     // Add reference
-                    _ = referenceBuffer.Add(new AssetLibrary.ReferenceBufferElement() { Entity = instance.AsRef });
+                    _ = assetLibraryBuffer.Add(new AssetLibraryConsumer.AssetLibraryBufferElement() { Entity = instance.AsRef });
                 }
             }
         }

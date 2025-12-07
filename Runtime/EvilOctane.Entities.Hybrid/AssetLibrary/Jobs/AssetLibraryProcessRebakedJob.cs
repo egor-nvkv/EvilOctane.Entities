@@ -41,7 +41,7 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                // Set for update
+                // Will set for update
                 toUpdateList.AddNoResize(entity.AsRef);
             }
 
@@ -51,8 +51,8 @@ namespace EvilOctane.Entities.Internal
                 // As simple as adding temp components
 
                 ComponentTypeSet rebakedComponentTypeSet = ComponentTypeSetUtility.Create<
-                    RebakedTag,
-                    AssetLibraryInternal.TempAssetBufferElement>();
+                    AssetLibrary.RebakedTag,
+                    AssetLibraryInternal.AssetReferenceBufferElement>();
 
                 CommandBuffer.AddComponent(toUpdateList.AsSpan(), in rebakedComponentTypeSet);
             }

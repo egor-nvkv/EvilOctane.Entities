@@ -12,8 +12,9 @@ namespace EvilOctane.Entities.Internal
     {
         public const string BakingTag = "Baking";
 
+        [HideInCallstack]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void LogAssetSearchErrors(ByteSpan assetDescription, AssetTableKey key, AssetSearchOptions options, AssetSearchResult result)
+        public static void LogAssetSearchErrors(ByteSpan assetDescription, ByteSpan assetName, AssetSearchOptions options, AssetSearchResult result)
         {
             if ((options & AssetSearchOptions.LogErrors) != AssetSearchOptions.LogErrors)
             {
@@ -24,14 +25,14 @@ namespace EvilOctane.Entities.Internal
             switch (result)
             {
                 case AssetSearchResult.NotFound:
-                    LogAssetNotFound(assetDescription, key);
+                    LogAssetNotFound(assetDescription, assetName);
                     break;
 
                 case AssetSearchResult.MultipleExist:
                     if ((options & AssetSearchOptions.UseFirstIfMultipleExist) != AssetSearchOptions.UseFirstIfMultipleExist)
                     {
                         // Multiple assets exist
-                        LogMultipleAssetsExist(assetDescription, key);
+                        LogMultipleAssetsExist(assetDescription, assetName);
                     }
 
                     break;
@@ -47,19 +48,20 @@ namespace EvilOctane.Entities.Internal
             }
         }
 
+        [HideInCallstack]
         [SkipLocalsInit]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void LogAssetNotFound(ByteSpan assetDescription, AssetTableKey key)
+        public static void LogAssetNotFound(ByteSpan assetDescription, ByteSpan assetName)
         {
             SkipInit(out FixedString512Bytes message);
             message.Length = 0;
 
-            _ = message.Append(
-                (FixedString32Bytes)"Asset \"",
-                assetDescription,
-                (FixedString32Bytes)"\" ",
-                key.ToFixedString(),
-                (FixedString32Bytes)" not found.");
+            _ = message.Append((FixedString32Bytes)"Asset ");
+            AppendDescriptionTrailSpace(ref message, assetDescription);
+
+            _ = message.AppendRawByte((byte)'\'');
+            _ = message.Append(assetName);
+            _ = message.Append((FixedString32Bytes)"' not found.");
 
             LogTagged(
                 (FixedString32Bytes)nameof(AssetLibrary),
@@ -68,6 +70,7 @@ namespace EvilOctane.Entities.Internal
                 LogType.Error);
         }
 
+        [HideInCallstack]
         [SkipLocalsInit]
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void LogEmptyAssetName(ByteSpan assetDescription)
@@ -75,10 +78,10 @@ namespace EvilOctane.Entities.Internal
             SkipInit(out FixedString512Bytes message);
             message.Length = 0;
 
-            _ = message.Append(
-                (FixedString32Bytes)"Asset \"",
-                assetDescription,
-                (FixedString64Bytes)"\" is marked as required but an empty name was received.");
+            _ = message.Append((FixedString32Bytes)"Asset ");
+            AppendDescriptionTrailSpace(ref message, assetDescription);
+
+            _ = message.Append((FixedString64Bytes)"is marked as required but an empty name was received.");
 
             LogTagged(
                 (FixedString32Bytes)nameof(AssetLibrary),
@@ -87,25 +90,36 @@ namespace EvilOctane.Entities.Internal
                 LogType.Error);
         }
 
+        [HideInCallstack]
         [SkipLocalsInit]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void LogMultipleAssetsExist(ByteSpan assetDescription, AssetTableKey key)
+        public static void LogMultipleAssetsExist(ByteSpan assetDescription, ByteSpan assetName)
         {
             SkipInit(out FixedString512Bytes message);
             message.Length = 0;
 
-            _ = message.Append(
-                (FixedString32Bytes)"Multiple assets \"",
-                assetDescription,
-                (FixedString32Bytes)"\" ",
-                key.ToFixedString(),
-                (FixedString32Bytes)" exist.");
+            _ = message.Append((FixedString32Bytes)"Multiple assets ");
+            AppendDescriptionTrailSpace(ref message, assetDescription);
+
+            _ = message.AppendRawByte((byte)'\'');
+            _ = message.Append(assetName);
+            _ = message.Append((FixedString32Bytes)"' exist.");
 
             LogTagged(
                 (FixedString32Bytes)nameof(AssetLibrary),
                 (FixedString32Bytes)BakingTag,
                 in message,
                 LogType.Error);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void AppendDescriptionTrailSpace(ref FixedString512Bytes message, ByteSpan assetDescription)
+        {
+            if (!assetDescription.IsEmpty)
+            {
+                _ = message.Append(assetDescription);
+                _ = message.AppendRawByte((byte)' ');
+            }
         }
     }
 }

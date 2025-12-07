@@ -1,4 +1,3 @@
-using System;
 using Unity.Entities;
 
 namespace EvilOctane.Entities
@@ -8,19 +7,13 @@ namespace EvilOctane.Entities
         [BakingType]
         public struct AliveTag : ICleanupComponentsAliveTag { }
 
+        [TemporaryBakingType]
+        public struct RebakedTag : IComponentData { }
+
         [BakingType]
         public struct UnityObjectComponent : IComponentData
         {
             public UnityObjectRef<AssetLibrary> Value;
-        }
-
-        /// <summary>
-        /// A reference to a baked <see cref="AssetLibrary"/>.
-        /// </summary>
-        [BakingType]
-        public struct ReferenceBufferElement : IBufferElementData
-        {
-            public Entity Entity;
         }
 
         [BakingType]
@@ -31,19 +24,9 @@ namespace EvilOctane.Entities
 
             public readonly Entity OwnedEntity => Entity;
 
-            public struct OwnerShared : ISharedComponentData, IEquatable<OwnerShared>
+            public struct OwnerShared : ISharedComponentData
             {
                 public Entity AssetLibrary;
-
-                public readonly bool Equals(OwnerShared other)
-                {
-                    return AssetLibrary == other.AssetLibrary;
-                }
-
-                public override readonly int GetHashCode()
-                {
-                    return AssetLibrary.GetHashCode();
-                }
             }
         }
 

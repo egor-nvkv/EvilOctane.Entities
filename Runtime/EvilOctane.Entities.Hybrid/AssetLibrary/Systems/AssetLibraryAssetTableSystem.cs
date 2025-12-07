@@ -1,9 +1,10 @@
 using Unity.Burst;
 using Unity.Entities;
+using static Unity.Entities.SystemAPI;
 
 namespace EvilOctane.Entities.Internal
 {
-    [UpdateInGroup(typeof(AssetLibraryAfterAssetBakingSystemGroup))]
+    [UpdateInGroup(typeof(AssetLibraryAssetTableSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
     public partial struct AssetLibraryAssetTableSystem : ISystem
     {
@@ -11,8 +12,10 @@ namespace EvilOctane.Entities.Internal
         public void OnUpdate(ref SystemState state)
         {
             // Create tables
-            new AssetLibraryCreateAssetTablesJob().ScheduleParallel();
-            state.CompleteDependency();
+            new AssetLibraryCreateAssetTablesJob()
+            {
+                BakingNameLookup = GetBufferLookup<Asset.BakingNameStorage>(isReadOnly: true)
+            }.ScheduleParallel();
         }
     }
 }

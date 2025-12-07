@@ -11,8 +11,7 @@ using static System.Runtime.CompilerServices.Unsafe;
 namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
-    [WithOptions(EntityQueryOptions.IncludeDisabledEntities)]
-    public unsafe struct AssetLibraryGarbageCollectionJob : IJobChunk
+    public unsafe struct AssetLibraryGCJob : IJobChunk
     {
         [ReadOnly]
         public EntityTypeHandle EntityTypeHandle;

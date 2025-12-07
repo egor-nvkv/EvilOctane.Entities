@@ -1,193 +1,216 @@
-using System;
 using System.Runtime.CompilerServices;
-using Unity.Burst;
-using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using static EvilOctane.Entities.Internal.AssetLibraryLogAPI;
+using UnityEngine;
+using static EvilOctane.Entities.AssetLibraryLowLevelAPI;
 using static System.Runtime.CompilerServices.Unsafe;
 using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility2;
 using UnityObject = UnityEngine.Object;
 
 namespace EvilOctane.Entities
 {
-    public static unsafe class AssetLibraryAPI
+    public static class AssetLibraryAPI
     {
+        [HideInCallstack]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong GetAssetTypeHash<T>()
-            where T : UnityObject
-        {
-            return (ulong)BurstRuntime.GetHashCode64<T>();
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong GetAssetTypeHash(Type type)
-        {
-            return (ulong)BurstRuntime.GetHashCode64(type);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FindAssets(
-            ref ComponentLookup<AssetLibrary.AssetTableComponent> assetTableLookupRO,
-            UnsafeSpan<AssetLibrary.ReferenceBufferElement> assetLibrarySpanRO,
-            ByteSpan assetName,
-            ulong assetTypeHash,
-            ref UnsafeList<Entity> outAssetList,
-            bool stopOnFirstMatch)
-        {
-            outAssetList.Clear();
-
-            AssetTableKey key = new(assetTypeHash, assetName);
-
-            foreach (AssetLibrary.ReferenceBufferElement assetLibrary in assetLibrarySpanRO)
-            {
-                if (Hint.Unlikely(!assetTableLookupRO.TryGetRefRO(assetLibrary.Entity, out RefRO<AssetLibrary.AssetTableComponent> assetTable)))
-                {
-                    // Component missing
-                    continue;
-                }
-
-                Pointer<AssetTableEntry> entry = assetTable.ValueRO.Value.Table.TryGet(key, out bool exists);
-
-                if (!exists)
-                {
-                    // Not found
-                    continue;
-                }
-
-                UnsafeList<Entity> entityList = entry.AsRef.EntityList;
-
-                if (Hint.Unlikely(entityList.IsEmpty))
-                {
-                    // Empty
-                    continue;
-                }
-
-                if (stopOnFirstMatch)
-                {
-                    // Add single
-                    outAssetList.AddNoResize(entityList[0]);
-                    break;
-                }
-                else
-                {
-                    // Add all
-                    outAssetList.AddRange(entry.AsRef.EntityList);
-                }
-            }
-        }
-
-        public static AssetSearchResult FindAssetFirstMatch(
-            ref ComponentLookup<AssetLibrary.AssetTableComponent> assetTableLookupRO,
-            UnsafeSpan<AssetLibrary.ReferenceBufferElement> assetLibrarySpanRO,
-            ByteSpan assetDescription,
-            ByteSpan assetName,
-            ulong assetTypeHash,
-            AssetSearchOptions options,
-            out Entity asset)
-        {
-            AssetSearchResult result;
-            asset = Entity.Null;
-
-            if (assetName.IsEmpty)
-            {
-                // Empty name
-                result = AssetSearchResult.NameIsEmpty;
-            }
-            else
-            {
-                // Find
-
-                UnsafeList<Entity> tempAssetList;
-
-                fixed (Entity* assetPtr = &asset)
-                {
-                    tempAssetList = new UnsafeList<Entity>(assetPtr, 1)
-                    {
-                        m_length = 0
-                    };
-
-                    FindAssets(
-                        ref assetTableLookupRO,
-                        assetLibrarySpanRO,
-                        assetName,
-                        assetTypeHash,
-                        ref tempAssetList,
-                        stopOnFirstMatch: true);
-                }
-
-                result = tempAssetList.IsEmpty ? AssetSearchResult.NotFound : AssetSearchResult.Found;
-            }
-
-            if (result != AssetSearchResult.Found)
-            {
-                LogAssetSearchErrors(assetDescription, new AssetTableKey(assetTypeHash, assetName), options, result);
-            }
-
-            return result;
-        }
-
-        public static AssetSearchResult FindAssetFast(
-            ref ComponentLookup<AssetLibrary.AssetTableComponent> assetTableLookupRO,
+        public static AssetSearchResult FindAssetFast<T, S0, S1>(
             ref ComponentLookup<Asset.UnityObjectComponent> unityObjectLookupRO,
-            UnsafeSpan<AssetLibrary.ReferenceBufferElement> assetLibrarySpanRO,
-            ByteSpan assetDescription,
-            ByteSpan assetName,
-            ulong assetTypeHash,
+            Entity assetLibrary,
+            in AssetTable assetTable,
+            in S0 assetDescription,
+            in S1 assetName,
             AssetSearchOptions options,
-            out UnityObjectRef<UnityObject> unityObjectRef)
+            out UnityObjectRef<T> asset)
+
+            where T : UnityObject
+            where S0 : unmanaged, INativeList<byte>, IUTF8Bytes
+            where S1 : unmanaged, INativeList<byte>, IUTF8Bytes
         {
-            AssetSearchResult result = FindAssetFirstMatch(
-                ref assetTableLookupRO,
-                assetLibrarySpanRO,
-                assetDescription,
-                assetName,
-                assetTypeHash,
-                options,
-                out Entity asset);
-
-            Asset.UnityObjectComponent unityObject = new();
-
-            if (result == AssetSearchResult.Found)
+            AssetSearcherFirstMatch searcher = new()
             {
-                if (!unityObjectLookupRO.TryGetComponent(asset, out unityObject))
-                {
-                    // Component missing
-                    result = AssetSearchResult.NotFound;
-                    LogAssetSearchErrors(assetDescription, new AssetTableKey(assetTypeHash, assetName), options, result);
-                }
-            }
+                UnityObjectLookup = unityObjectLookupRO,
+                AssetTypeHash = GetAssetTypeHash<T>()
+            };
 
-            unityObjectRef = unityObject.Value;
+            AssetSearchResult result = SearchAssets(
+                assetLibrary,
+                in AsRef(in assetTable),
+                AsRef(in assetDescription).AsByteSpan(),
+                AsRef(in assetName).AsByteSpan(),
+                ref searcher,
+                options);
+
+            asset = ReinterpretExact<UnityObjectRef<UnityObject>, UnityObjectRef<T>>(ref searcher.ResultAsset);
             return result;
         }
 
+        [HideInCallstack]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static AssetSearchResult FindAssetFast<T, S0, S1>(
             ref ComponentLookup<AssetLibrary.AssetTableComponent> assetTableLookupRO,
             ref ComponentLookup<Asset.UnityObjectComponent> unityObjectLookupRO,
-            DynamicBuffer<AssetLibrary.ReferenceBufferElement> assetLibraryBuffer,
+            DynamicBuffer<AssetLibraryConsumer.AssetLibraryBufferElement> assetLibraryBuffer,
             in S0 assetDescription,
             in S1 assetName,
             AssetSearchOptions options,
-            out UnityObjectRef<T> unityObjectRef)
+            out UnityObjectRef<T> asset)
 
+            where T : UnityObject
             where S0 : unmanaged, INativeList<byte>, IUTF8Bytes
             where S1 : unmanaged, INativeList<byte>, IUTF8Bytes
-            where T : UnityObject
         {
-            AssetSearchResult result = FindAssetFast(
+            AssetSearcherFirstMatch searcher = new()
+            {
+                UnityObjectLookup = unityObjectLookupRO,
+                AssetTypeHash = GetAssetTypeHash<T>()
+            };
+
+            AssetSearchResult result = SearchAssets(
                 ref assetTableLookupRO,
-                ref unityObjectLookupRO,
                 assetLibraryBuffer.AsSpanRO(),
                 AsRef(in assetDescription).AsByteSpan(),
                 AsRef(in assetName).AsByteSpan(),
-                GetAssetTypeHash<T>(),
-                options,
-                out UnityObjectRef<UnityObject> unityObjectRefUntyped);
+                ref searcher,
+                options);
 
-            unityObjectRef = ReinterpretExact<UnityObjectRef<UnityObject>, UnityObjectRef<T>>(ref unityObjectRefUntyped);
+            asset = ReinterpretExact<UnityObjectRef<UnityObject>, UnityObjectRef<T>>(ref searcher.ResultAsset);
+            return result;
+        }
+
+        [HideInCallstack]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static AssetSearchResult FindAssetWithComponentFast<T, S0, S1>(
+            ref ComponentLookup<T> componentLookupRO,
+            Entity assetLibrary,
+            in AssetTable assetTable,
+            in S0 assetDescription,
+            in S1 assetName,
+            AssetSearchOptions options,
+            out Entity asset,
+            out RefRO<T> component)
+
+            where T : unmanaged, IComponentData
+            where S0 : unmanaged, INativeList<byte>, IUTF8Bytes
+            where S1 : unmanaged, INativeList<byte>, IUTF8Bytes
+        {
+            AssetWithComponentSearcherFirstMatch<T> searcher = new()
+            {
+                ComponentLookup = componentLookupRO
+            };
+
+            AssetSearchResult result = SearchAssets(
+                assetLibrary,
+                in AsRef(in assetTable),
+                AsRef(in assetDescription).AsByteSpan(),
+                AsRef(in assetName).AsByteSpan(),
+                ref searcher,
+                options);
+
+            asset = searcher.ResultAsset;
+            component = searcher.ResultComponent;
+            return result;
+        }
+
+        [HideInCallstack]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static AssetSearchResult FindAssetWithComponentFast<T, S0, S1>(
+            ref ComponentLookup<AssetLibrary.AssetTableComponent> assetTableLookupRO,
+            ref ComponentLookup<T> componentLookupRO,
+            DynamicBuffer<AssetLibraryConsumer.AssetLibraryBufferElement> assetLibraryBuffer,
+            in S0 assetDescription,
+            in S1 assetName,
+            AssetSearchOptions options,
+            out Entity asset,
+            out RefRO<T> component)
+
+            where T : unmanaged, IComponentData
+            where S0 : unmanaged, INativeList<byte>, IUTF8Bytes
+            where S1 : unmanaged, INativeList<byte>, IUTF8Bytes
+        {
+            AssetWithComponentSearcherFirstMatch<T> searcher = new()
+            {
+                ComponentLookup = componentLookupRO
+            };
+
+            AssetSearchResult result = SearchAssets(
+                ref assetTableLookupRO,
+                assetLibraryBuffer.AsSpanRO(),
+                AsRef(in assetDescription).AsByteSpan(),
+                AsRef(in assetName).AsByteSpan(),
+                ref searcher,
+                options);
+
+            asset = searcher.ResultAsset;
+            component = searcher.ResultComponent;
+            return result;
+        }
+
+        [HideInCallstack]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static AssetSearchResult FindAssetWithBufferFast<T, S0, S1>(
+            ref BufferLookup<T> bufferLookup,
+            Entity assetLibrary,
+            in AssetTable assetTable,
+            in S0 assetDescription,
+            in S1 assetName,
+            AssetSearchOptions options,
+            out Entity asset,
+            out DynamicBuffer<T> buffer)
+
+            where T : unmanaged, IBufferElementData
+            where S0 : unmanaged, INativeList<byte>, IUTF8Bytes
+            where S1 : unmanaged, INativeList<byte>, IUTF8Bytes
+        {
+            AssetWithBufferSearcherFirstMatch<T> searcher = new()
+            {
+                BufferLookup = bufferLookup
+            };
+
+            AssetSearchResult result = SearchAssets(
+                assetLibrary,
+                in AsRef(in assetTable),
+                AsRef(in assetDescription).AsByteSpan(),
+                AsRef(in assetName).AsByteSpan(),
+                ref searcher,
+                options);
+
+            asset = searcher.ResultAsset;
+            buffer = searcher.ResultBuffer;
+            return result;
+        }
+
+        [HideInCallstack]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static AssetSearchResult FindAssetWithBufferFast<T, S0, S1>(
+            ref ComponentLookup<AssetLibrary.AssetTableComponent> assetTableLookupRO,
+            ref BufferLookup<T> bufferLookup,
+            DynamicBuffer<AssetLibraryConsumer.AssetLibraryBufferElement> assetLibraryBuffer,
+            in S0 assetDescription,
+            in S1 assetName,
+            AssetSearchOptions options,
+            out Entity asset,
+            out DynamicBuffer<T> buffer)
+
+            where T : unmanaged, IBufferElementData
+            where S0 : unmanaged, INativeList<byte>, IUTF8Bytes
+            where S1 : unmanaged, INativeList<byte>, IUTF8Bytes
+        {
+            AssetWithBufferSearcherFirstMatch<T> searcher = new()
+            {
+                BufferLookup = bufferLookup
+            };
+
+            AssetSearchResult result = SearchAssets(
+                ref assetTableLookupRO,
+                assetLibraryBuffer.AsSpanRO(),
+                AsRef(in assetDescription).AsByteSpan(),
+                AsRef(in assetName).AsByteSpan(),
+                ref searcher,
+                options);
+
+            asset = searcher.ResultAsset;
+            buffer = searcher.ResultBuffer;
             return result;
         }
     }

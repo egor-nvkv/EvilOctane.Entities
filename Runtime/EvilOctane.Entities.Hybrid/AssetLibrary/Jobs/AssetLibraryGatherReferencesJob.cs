@@ -8,7 +8,7 @@ namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
     [WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)]
-    public partial struct AssetLibraryGatherDeclaredReferenceJob : IJobEntity, IJobEntityChunkBeginEnd
+    public partial struct AssetLibraryGatherReferencesJob : IJobEntity, IJobEntityChunkBeginEnd
     {
         public NativeReference<AssetLibraryConsumerTable> ConsumerTableRef;
         public NativeReference<AssetLibraryRebakedSet> RebakedSetRef;
@@ -17,7 +17,7 @@ namespace EvilOctane.Entities.Internal
 
         public void Execute(
             in AdditionalEntityParent parent,
-            in AssetLibraryInternal.DeclaredReference reference)
+            in AssetLibraryConsumerAdditional.DeclaredReference reference)
         {
             ref AssetLibraryConsumerTable consumerTable = ref ConsumerTableRef.GetRef();
             Pointer<UnsafeList<Entity>> consumerList = consumerTable.Value.GetOrAddNoResize(reference.AssetLibrary, out bool added);
@@ -51,7 +51,7 @@ namespace EvilOctane.Entities.Internal
         {
             ConsumerTableRef.GetRef().Value.EnsureSlack(chunk.Count);
 
-            rebaked = chunk.Has<RebakedTag>();
+            rebaked = chunk.Has<AssetLibraryConsumerAdditional.RebakedTag>();
 
             if (rebaked)
             {

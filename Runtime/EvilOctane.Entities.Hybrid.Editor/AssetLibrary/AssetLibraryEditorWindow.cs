@@ -302,12 +302,10 @@ namespace EvilOctane.Entities.Editor
                 return;
             }
 
-            @event.StopPropagation();
-
             if (DragAndDrop.entityIds.Length != 0)
             {
-                // Accept drag and drop
                 DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+                @event.StopPropagation();
             }
         }
 
@@ -317,8 +315,6 @@ namespace EvilOctane.Entities.Editor
             {
                 return;
             }
-
-            @event.StopPropagation();
 
             UnityObject[] draggedObjects = DragAndDrop.objectReferences;
             DragAndDrop.AcceptDrag();
@@ -351,6 +347,8 @@ namespace EvilOctane.Entities.Editor
 
             EditorUtility.SetDirty(target);
             assetListView.Rebuild();
+
+            @event.StopPropagation();
         }
 
         private sealed class NameBinding

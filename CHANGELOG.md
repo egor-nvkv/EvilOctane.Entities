@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.14.6] - 2025-12-07
+
+* AssetLibrary fixes and improvements
+
 ## [0.14.5] - 2025-11-30
 
 * AssetLibrary v2

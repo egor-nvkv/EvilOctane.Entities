@@ -1,86 +1,71 @@
 using EvilOctane.Collections;
 using EvilOctane.Collections.LowLevel.Unsafe;
 using System;
-using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using static Unity.Collections.LowLevel.Unsafe.UnsafeUtility;
 
 namespace EvilOctane.Entities
 {
-    public struct AssetTable : IDisposable
+    public unsafe struct AssetTable : IDisposable
     {
-        public UnsafeSwissTable<AssetTableKey, AssetTableEntry, AssetTableKey.Hasher> Table;
-        public UnsafeList<UnsafeText> AssetNameList;
+        public UnsafeSwissTable<ByteSpan, AssetTableEntry, XXH3StringHasher<ByteSpan>> Table;
 
-        public readonly bool IsCreated => Table.IsCreated & AssetNameList.IsCreated;
+        public readonly bool IsCreated => Table.IsCreated;
 
         public AssetTable(int capacity, AllocatorManager.AllocatorHandle allocator)
         {
-            Table = new UnsafeSwissTable<AssetTableKey, AssetTableEntry, AssetTableKey.Hasher>(capacity, allocator);
-            AssetNameList = UnsafeListExtensions2.Create<UnsafeText>(capacity, allocator);
+            Table = new UnsafeSwissTable<ByteSpan, AssetTableEntry, XXH3StringHasher<ByteSpan>>(capacity, allocator);
         }
 
         public void Dispose()
         {
-            foreach (KeyValueRef<AssetTableKey, AssetTableEntry> kvPair in Table)
-            {
-                kvPair.ValueRef.Dispose();
-            }
-
+            DisposeTableElements();
             Table.Dispose();
-
-            foreach (UnsafeText item in AssetNameList)
-            {
-                item.Dispose();
-            }
-
-            AssetNameList.Dispose();
         }
 
         public void ClearEnsureCapacity(int capacity)
         {
+            DisposeTableElements();
             Table.Clear();
             Table.EnsureCapacity(capacity, keepOldData: false);
-
-            foreach (UnsafeText item in AssetNameList)
-            {
-                item.Dispose();
-            }
-
-            AssetNameList.Clear();
-            AssetNameList.EnsureCapacity(capacity, keepOldData: false);
         }
 
-        public void AddNoResize(ulong assetTypeHash, ByteSpan assetName, Entity asset)
+        public void AddNoResize(ByteSpan assetName, Entity asset)
         {
-            UnsafeText assetNamePersistent = UnsafeTextExtensions2.Create(assetName, Table.Allocator);
+            Pointer<AssetTableEntry> entry = Table.TryGet(assetName, out bool exists);
 
-            AssetTableKey key = new(assetTypeHash, assetNamePersistent);
-            Pointer<AssetTableEntry> entry = Table.GetOrAddNoResize(key, out bool added);
-
-            ref UnsafeList<Entity> entityList = ref entry.AsRef.EntityList;
-
-            if (Hint.Likely(added))
+            if (!exists)
             {
                 // Create
-
-                AssetNameList.AddNoResize(assetNamePersistent);
-
-                entityList = UnsafeListExtensions2.Create<Entity>(1, Table.Allocator);
-                entityList.AddNoResize(asset);
+                ByteSpan assetNamePersistent = AllocateAssetName(assetName);
+                entry = Table.Add(assetNamePersistent);
+                entry.AsRef = new AssetTableEntry(4, Table.Allocator);
             }
-            else
+
+            entry.AsRef.AddUnique(asset, Table.Allocator);
+        }
+
+        private readonly ByteSpan AllocateAssetName(ByteSpan tempAssetName)
+        {
+            byte* ptr = (byte*)MemoryExposed.Unmanaged.Allocate(tempAssetName.Length, AlignOf<ulong>(), Table.Allocator);
+            ByteSpan assetName = new(ptr, tempAssetName.Length);
+            assetName.CopyFrom(tempAssetName);
+            return assetName;
+        }
+
+        private readonly void DisposeAssetName(ByteSpan assetName)
+        {
+            MemoryExposed.Unmanaged.Free(assetName.Ptr, Table.Allocator);
+        }
+
+        private readonly void DisposeTableElements()
+        {
+            foreach (KeyValueRef<ByteSpan, AssetTableEntry> kvPair in Table)
             {
-                // Add
-
-                assetNamePersistent.Dispose();
-
-                if (!entityList.AsSpan().Contains(asset))
-                {
-                    // Add unique
-                    entityList.Add(asset);
-                }
+                DisposeAssetName(kvPair.KeyRefRO);
+                kvPair.ValueRef.Dispose(Table.Allocator);
             }
         }
     }
