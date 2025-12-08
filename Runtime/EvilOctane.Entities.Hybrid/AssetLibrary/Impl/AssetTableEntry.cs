@@ -2,7 +2,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using static Unity.Collections.CollectionHelper2;
-using static Unity.Collections.CollectionUtility;
 
 namespace EvilOctane.Entities
 {
@@ -25,7 +24,7 @@ namespace EvilOctane.Entities
 
         public void AddUnique(Entity entity, AllocatorManager.AllocatorHandle allocator)
         {
-            int index = FindOrderedInsertionIndex(EntityPtr, Length, entity, out bool exists);
+            bool exists = EntitySpan.Contains(entity);
 
             if (exists)
             {
@@ -41,8 +40,7 @@ namespace EvilOctane.Entities
                 Allocator = allocator
             };
 
-            tempList.InsertRange(index, 1);
-            tempList[index] = entity;
+            tempList.Add(entity);
 
             EntityPtr = tempList.Ptr;
             Length = tempList.Length;
