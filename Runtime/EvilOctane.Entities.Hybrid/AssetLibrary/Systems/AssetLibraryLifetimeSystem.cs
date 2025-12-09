@@ -31,7 +31,7 @@ namespace EvilOctane.Entities.Internal
                 ComponentType.ReadWrite<AssetLibrary.AssetBufferElement>(),
                 ComponentType.ReadWrite<AssetLibrary.AssetTableComponent>(),
 
-                ComponentType.ReadWrite<AssetLibraryInternal.AssetReferenceBufferElement>()
+                ComponentType.ReadWrite<AssetLibraryInternal.AssetDataBufferElement>()
             });
         }
 

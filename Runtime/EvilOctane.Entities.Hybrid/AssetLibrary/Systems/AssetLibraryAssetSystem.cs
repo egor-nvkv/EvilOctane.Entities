@@ -1,5 +1,4 @@
 using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using static Unity.Entities.SystemAPI;
 
@@ -33,16 +32,6 @@ namespace EvilOctane.Entities.Internal
             ResolveReferences(ref state);
         }
 
-        private void Dispose(ref UnsafeList<UnsafeText> list)
-        {
-            foreach (UnsafeText item in list)
-            {
-                item.Dispose();
-            }
-
-            list.Dispose();
-        }
-
         private void UpdateAssets(ref SystemState state)
         {
             EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
@@ -52,7 +41,7 @@ namespace EvilOctane.Entities.Internal
                 EntityTypeHandle = GetEntityTypeHandle(),
 
                 AssetBufferTypeHandle = GetBufferTypeHandle<AssetLibrary.AssetBufferElement>(),
-                AssetReferenceBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.AssetReferenceBufferElement>(isReadOnly: true),
+                AssetDataBufferTypeHandle = GetBufferTypeHandle<AssetLibraryInternal.AssetDataBufferElement>(isReadOnly: true),
                 UnityObjectLookup = GetComponentLookup<Asset.UnityObjectComponent>(isReadOnly: true),
 
                 AssetArchetype = assetArchetype,
@@ -62,7 +51,7 @@ namespace EvilOctane.Entities.Internal
             }.ScheduleParallel(
                 QueryBuilder()
                 .WithPresentRW<AssetLibrary.AssetBufferElement>()
-                .WithPresent<AssetLibraryInternal.AssetReferenceBufferElement>()
+                .WithPresent<AssetLibraryInternal.AssetDataBufferElement>()
                 .Build(),
                 state.Dependency);
 

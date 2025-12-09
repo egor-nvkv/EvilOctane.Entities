@@ -23,7 +23,7 @@ namespace EvilOctane.Entities.Internal
         public BufferTypeHandle<AssetLibrary.AssetBufferElement> AssetBufferTypeHandle;
 
         [ReadOnly]
-        public BufferTypeHandle<AssetLibraryInternal.AssetReferenceBufferElement> AssetReferenceBufferTypeHandle;
+        public BufferTypeHandle<AssetLibraryInternal.AssetDataBufferElement> AssetDataBufferTypeHandle;
 
         [ReadOnly]
         public ComponentLookup<Asset.UnityObjectComponent> UnityObjectLookup;
@@ -40,31 +40,31 @@ namespace EvilOctane.Entities.Internal
             Entity* entityPtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
 
             BufferAccessor<AssetLibrary.AssetBufferElement> assetBufferAccessor = chunk.GetBufferAccessorRW(ref AssetBufferTypeHandle);
-            BufferAccessor<AssetLibraryInternal.AssetReferenceBufferElement> assetReferenceBufferAccessor = chunk.GetBufferAccessorRO(ref AssetReferenceBufferTypeHandle);
+            BufferAccessor<AssetLibraryInternal.AssetDataBufferElement> assetDataBufferAccessor = chunk.GetBufferAccessorRO(ref AssetDataBufferTypeHandle);
 
-            AssetReferenceTable referenceTable = new();
-            AssetInstanceTable instanceTable = new();
+            AssetDataTable assetDataTable = new();
+            AssetInstanceTable assetInstanceTable = new();
 
             UnsafeList<Entity> newAssetList = new();
 
             UnsafeList<Entity> toRebakeList = UnsafeListExtensions2.Create<Entity>(32, TempAllocator);
-            UnsafeList<AssetReferenceData> rebakeDataList = UnsafeListExtensions2.Create<AssetReferenceData>(32, TempAllocator);
+            UnsafeList<AssetData> rebakeDataList = UnsafeListExtensions2.Create<AssetData>(32, TempAllocator);
 
             UnsafeList<Entity> toDestroyList = UnsafeListExtensions2.Create<Entity>(16, TempAllocator);
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
-                DynamicBuffer<AssetLibraryInternal.AssetReferenceBufferElement> assetReferenceBuffer = assetReferenceBufferAccessor[entityIndex];
+                DynamicBuffer<AssetLibraryInternal.AssetDataBufferElement> assetDataBuffer = assetDataBufferAccessor[entityIndex];
 
-                CreateReferenceTable(
-                    ref referenceTable,
-                    assetReferenceBuffer.AsSpanRO());
+                CreateAssetDataTable(
+                    ref assetDataTable,
+                    assetDataBuffer.AsSpanRO());
 
                 DynamicBuffer<AssetLibrary.AssetBufferElement> assetBuffer = assetBufferAccessor[entityIndex];
 
                 CreateInstanceTableDestroyInvalid(
-                    ref referenceTable,
-                    ref instanceTable,
+                    ref assetDataTable,
+                    ref assetInstanceTable,
                     ref toRebakeList,
                     ref rebakeDataList,
                     ref toDestroyList,
@@ -74,8 +74,8 @@ namespace EvilOctane.Entities.Internal
 
                 CreateMissing(
                     unfilteredChunkIndex,
-                    ref referenceTable,
-                    ref instanceTable,
+                    ref assetDataTable,
+                    ref assetInstanceTable,
                     ref newAssetList,
                     entity);
             }
@@ -94,53 +94,53 @@ namespace EvilOctane.Entities.Internal
                 CommandBuffer.DestroyEntity(unfilteredChunkIndex, toDestroyList.AsSpan());
             }
 
-            CommandBuffer.RemoveComponent<AssetLibraryInternal.AssetReferenceBufferElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
+            CommandBuffer.RemoveComponent<AssetLibraryInternal.AssetDataBufferElement>(unfilteredChunkIndex, entityPtr, chunk.Count);
         }
 
-        private void CreateReferenceTable(
-            ref AssetReferenceTable referenceTable,
-            UnsafeSpan<AssetLibraryInternal.AssetReferenceBufferElement> assetReferenceSpanRO)
+        private void CreateAssetDataTable(
+            ref AssetDataTable assetDataTable,
+            UnsafeSpan<AssetLibraryInternal.AssetDataBufferElement> assetDataSpanRO)
         {
-            if (referenceTable.Value.IsCreated)
+            if (assetDataTable.Value.IsCreated)
             {
-                referenceTable.Value.Clear();
-                referenceTable.Value.EnsureCapacity(assetReferenceSpanRO.Length, keepOldData: false);
+                assetDataTable.Value.Clear();
+                assetDataTable.Value.EnsureCapacity(assetDataSpanRO.Length, keepOldData: false);
             }
             else
             {
-                referenceTable = new AssetReferenceTable(assetReferenceSpanRO.Length, TempAllocator);
+                assetDataTable = new AssetDataTable(assetDataSpanRO.Length, TempAllocator);
             }
 
-            foreach (AssetLibraryInternal.AssetReferenceBufferElement assetReference in assetReferenceSpanRO)
+            foreach (AssetLibraryInternal.AssetDataBufferElement assetData in assetDataSpanRO)
             {
-                Pointer<AssetReferenceData> referenceData = referenceTable.Value.GetOrAddNoResize(assetReference.Asset, out bool added);
+                Pointer<AssetData> assetDataOut = assetDataTable.Value.GetOrAddNoResize(assetData.Asset, out bool added);
 
                 if (added)
                 {
-                    referenceData.AsRef = assetReference.Data;
+                    assetDataOut.AsRef = assetData.Data;
                 }
             }
         }
 
         private void CreateInstanceTableDestroyInvalid(
-            ref AssetReferenceTable referenceTableRO,
-            ref AssetInstanceTable instanceTable,
+            ref AssetDataTable assetDataTableRO,
+            ref AssetInstanceTable assetInstanceTable,
             ref UnsafeList<Entity> toRebakeList,
-            ref UnsafeList<AssetReferenceData> rebakeDataList,
+            ref UnsafeList<AssetData> rebakeDataList,
             ref UnsafeList<Entity> toDestroyList,
             DynamicBuffer<AssetLibrary.AssetBufferElement> assetBuffer)
         {
-            if (instanceTable.Value.IsCreated)
+            if (assetInstanceTable.Value.IsCreated)
             {
-                instanceTable.Value.Clear();
-                instanceTable.Value.EnsureCapacity(assetBuffer.Length, keepOldData: false);
+                assetInstanceTable.Value.Clear();
+                assetInstanceTable.Value.EnsureCapacity(assetBuffer.Length, keepOldData: false);
             }
             else
             {
-                instanceTable = new AssetInstanceTable(assetBuffer.Length, TempAllocator);
+                assetInstanceTable = new AssetInstanceTable(assetBuffer.Length, TempAllocator);
             }
 
-            int maxRebakeCount = math.min(assetBuffer.Length, referenceTableRO.Value.Count);
+            int maxRebakeCount = math.min(assetBuffer.Length, assetDataTableRO.Value.Count);
             toRebakeList.EnsureSlack(maxRebakeCount);
             rebakeDataList.EnsureSlack(maxRebakeCount);
 
@@ -156,7 +156,7 @@ namespace EvilOctane.Entities.Internal
                     goto Remove;
                 }
 
-                Pointer<AssetReferenceData> referenceData = referenceTableRO.Value.TryGet(assetObj.Ref, out bool exists);
+                Pointer<AssetData> assetData = assetDataTableRO.Value.TryGet(assetObj.Ref, out bool exists);
 
                 if (!exists)
                 {
@@ -164,7 +164,7 @@ namespace EvilOctane.Entities.Internal
                     goto Remove;
                 }
 
-                Pointer<Entity> instance = instanceTable.Value.GetOrAddNoResize(assetObj.Ref, out bool added);
+                Pointer<Entity> instance = assetInstanceTable.Value.GetOrAddNoResize(assetObj.Ref, out bool added);
 
                 if (!added)
                 {
@@ -178,7 +178,7 @@ namespace EvilOctane.Entities.Internal
                 // everything referenced gets rebaked
 
                 toRebakeList.AddNoResize(asset);
-                rebakeDataList.AddNoResize(referenceData.AsRef);
+                rebakeDataList.AddNoResize(assetData.AsRef);
 
                 ++index;
                 continue;
@@ -191,26 +191,26 @@ namespace EvilOctane.Entities.Internal
 
         private void CreateMissing(
             int unfilteredChunkIndex,
-            ref AssetReferenceTable referenceTableRO,
-            ref AssetInstanceTable instanceTableRO,
+            ref AssetDataTable assetDataTableRO,
+            ref AssetInstanceTable assetInstanceTableRO,
             ref UnsafeList<Entity> newAssetList,
             Entity entity)
         {
             if (newAssetList.IsCreated)
             {
                 newAssetList.Clear();
-                newAssetList.EnsureCapacity(referenceTableRO.Value.Count, keepOldData: false);
+                newAssetList.EnsureCapacity(assetDataTableRO.Value.Count, keepOldData: false);
             }
             else
             {
-                newAssetList = UnsafeListExtensions2.Create<Entity>(referenceTableRO.Value.Count, TempAllocator);
+                newAssetList = UnsafeListExtensions2.Create<Entity>(assetDataTableRO.Value.Count, TempAllocator);
             }
 
             // Create
 
-            foreach (KeyValueRef<UnityObjectRef<UnityObject>, AssetReferenceData> kvPair in referenceTableRO.Value)
+            foreach (KeyValueRef<UnityObjectRef<UnityObject>, AssetData> kvPair in assetDataTableRO.Value)
             {
-                _ = instanceTableRO.Value.TryGet(kvPair.KeyRefRO, out bool exists);
+                _ = assetInstanceTableRO.Value.TryGet(kvPair.KeyRefRO, out bool exists);
 
                 if (exists)
                 {
@@ -257,7 +257,7 @@ namespace EvilOctane.Entities.Internal
         private void UpdateRebaked(
             int unfilteredChunkIndex,
             UnsafeSpan<Entity> toRebakeSpanRO,
-            UnsafeSpan<AssetReferenceData> rebakeDataSpanRO)
+            UnsafeSpan<AssetData> rebakeDataSpanRO)
         {
             // Rebaked tag
             CommandBuffer.AddComponent<Asset.RebakedTag>(unfilteredChunkIndex, toRebakeSpanRO);
@@ -287,22 +287,22 @@ namespace EvilOctane.Entities.Internal
         private void SetName(
             int unfilteredChunkIndex,
             Entity asset,
-            AssetReferenceData referenceData)
+            AssetData assetData)
         {
             SkipInit(out FixedString64Bytes entityName);
             entityName.Length = 0;
 
-            entityName.AppendTruncateUnchecked(referenceData.Name);
+            entityName.AppendTruncateUnchecked(assetData.Name);
             CommandBuffer.SetName(unfilteredChunkIndex, asset, entityName);
         }
 
         private void SetBakingName(
             int unfilteredChunkIndex,
             Entity asset,
-            AssetReferenceData referenceData)
+            AssetData assetData)
         {
             DynamicBuffer<Asset.BakingNameStorage> bakingName = CommandBuffer.AddBuffer<Asset.BakingNameStorage>(unfilteredChunkIndex, asset);
-            bakingName.Reinterpret<byte>().CopyFrom(referenceData.Name.AsByteSpan().AsUnsafeSpan());
+            bakingName.Reinterpret<byte>().CopyFrom(assetData.Name.AsByteSpan().AsUnsafeSpan());
         }
     }
 }

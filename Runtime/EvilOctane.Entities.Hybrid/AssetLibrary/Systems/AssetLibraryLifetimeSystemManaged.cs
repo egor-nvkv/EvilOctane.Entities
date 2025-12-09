@@ -19,13 +19,13 @@ namespace EvilOctane.Entities.Internal
             foreach ((
                 RefRW<BakedEntityNameComponent> entityName,
                 AssetLibrary.UnityObjectComponent assetLibrary,
-                DynamicBuffer<AssetLibraryInternal.AssetReferenceBufferElement> assetReferenceBuffer,
+                DynamicBuffer<AssetLibraryInternal.AssetDataBufferElement> assetDataBuffer,
                 Entity entity) in
 
                 Query<
                     RefRW<BakedEntityNameComponent>,
                     AssetLibrary.UnityObjectComponent,
-                    DynamicBuffer<AssetLibraryInternal.AssetReferenceBufferElement>>()
+                    DynamicBuffer<AssetLibraryInternal.AssetDataBufferElement>>()
                 .WithEntityAccess())
             {
                 AssetLibrary assetLibrarySO = assetLibrary.Value;
@@ -36,7 +36,7 @@ namespace EvilOctane.Entities.Internal
                 // Assets
                 List<UnityObject> assets = assetLibrarySO.assets;
 
-                assetReferenceBuffer.Clear();
+                assetDataBuffer.Clear();
 
                 if (assets == null)
                 {
@@ -52,7 +52,7 @@ namespace EvilOctane.Entities.Internal
                     continue;
                 }
 
-                assetReferenceBuffer.EnsureCapacityTrashOldData(assetCount);
+                assetDataBuffer.EnsureCapacityTrashOldData(assetCount);
 
                 foreach (UnityObject asset in assets)
                 {
@@ -62,10 +62,10 @@ namespace EvilOctane.Entities.Internal
                         continue;
                     }
 
-                    // Asset reference
-                    _ = assetReferenceBuffer.AddNoResize(new AssetLibraryInternal.AssetReferenceBufferElement()
+                    // Asset data
+                    _ = assetDataBuffer.AddNoResize(new AssetLibraryInternal.AssetDataBufferElement()
                     {
-                        Data = new AssetReferenceData()
+                        Data = new AssetData()
                         {
                             Name = UnsafeTextExtensions2.Create(asset.name, state.WorldUpdateAllocator),
                             TypeHash = GetAssetTypeHash(asset.GetType())

@@ -9,15 +9,15 @@ namespace EvilOctane.Entities
         public struct RebakedTag : IComponentData { }
 
         [BakingType]
-        public struct DeclaredAssetReference : IComponentData
+        public struct DeclaredReference : IComponentData
         {
             public UnityObjectRef<UnityObject> Asset;
-        }
 
-        [BakingType]
-        public struct ResolvedAssetReference : IComponentData
-        {
-            public Entity Asset;
+            [BakingType]
+            public struct Resolved : IComponentData
+            {
+                public Entity Asset;
+            }
         }
     }
 }

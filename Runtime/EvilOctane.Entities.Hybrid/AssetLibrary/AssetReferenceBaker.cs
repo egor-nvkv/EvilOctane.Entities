@@ -8,17 +8,17 @@ namespace EvilOctane.Entities.Internal
     {
         public override void Bake(AssetReferenceAuthoring authoring)
         {
+            Entity entity = GetEntityWithoutDependency();
+
+            // Rebaked tag
+            AddComponent<AssetConsumer.RebakedTag>(entity);
+
             Object asset = DependsOn(authoring.asset);
 
             if (DependsOnAssetLibrariesAndAssets(this) && asset)
             {
-                Entity entity = GetEntityWithoutDependency();
-
-                // Rebaked tag
-                AddComponent<AssetConsumer.RebakedTag>(entity);
-
                 // Asset reference
-                AddComponent(entity, new AssetConsumer.DeclaredAssetReference()
+                AddComponent(entity, new AssetConsumer.DeclaredReference()
                 {
                     Asset = authoring.asset
                 });

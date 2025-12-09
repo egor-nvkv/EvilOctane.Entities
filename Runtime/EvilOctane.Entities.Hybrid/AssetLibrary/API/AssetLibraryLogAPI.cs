@@ -59,9 +59,9 @@ namespace EvilOctane.Entities.Internal
             _ = message.Append((FixedString32Bytes)"Asset ");
             AppendDescriptionTrailSpace(ref message, assetDescription);
 
-            _ = message.AppendRawByte((byte)'\'');
+            _ = message.AppendRawByte((byte)'"');
             _ = message.Append(assetName);
-            _ = message.Append((FixedString32Bytes)"' not found.");
+            _ = message.Append((FixedString32Bytes)"\" not found.");
 
             LogTagged(
                 (FixedString32Bytes)nameof(AssetLibrary),
@@ -101,9 +101,9 @@ namespace EvilOctane.Entities.Internal
             _ = message.Append((FixedString32Bytes)"Multiple assets ");
             AppendDescriptionTrailSpace(ref message, assetDescription);
 
-            _ = message.AppendRawByte((byte)'\'');
+            _ = message.AppendRawByte((byte)'"');
             _ = message.Append(assetName);
-            _ = message.Append((FixedString32Bytes)"' exist.");
+            _ = message.Append((FixedString32Bytes)"\" exist.");
 
             LogTagged(
                 (FixedString32Bytes)nameof(AssetLibrary),

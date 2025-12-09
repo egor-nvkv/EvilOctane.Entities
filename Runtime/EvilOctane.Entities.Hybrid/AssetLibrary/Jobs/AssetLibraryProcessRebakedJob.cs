@@ -52,7 +52,7 @@ namespace EvilOctane.Entities.Internal
 
                 ComponentTypeSet rebakedComponentTypeSet = ComponentTypeSetUtility.Create<
                     AssetLibrary.RebakedTag,
-                    AssetLibraryInternal.AssetReferenceBufferElement>();
+                    AssetLibraryInternal.AssetDataBufferElement>();
 
                 CommandBuffer.AddComponent(toUpdateList.AsSpan(), in rebakedComponentTypeSet);
             }

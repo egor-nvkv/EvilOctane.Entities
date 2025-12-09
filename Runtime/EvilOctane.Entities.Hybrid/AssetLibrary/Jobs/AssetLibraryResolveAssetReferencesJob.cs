@@ -18,7 +18,7 @@ namespace EvilOctane.Entities.Internal
 
         public void Execute(
             Entity entity,
-            in AssetConsumer.DeclaredAssetReference assetReference,
+            in AssetConsumer.DeclaredReference assetReference,
             in DynamicBuffer<AssetLibraryConsumer.AssetLibraryBufferElement> assetLibraryBuffer)
         {
             foreach (AssetLibraryConsumer.AssetLibraryBufferElement assetLibrary in assetLibraryBuffer)
@@ -41,7 +41,7 @@ namespace EvilOctane.Entities.Internal
                     {
                         // Found
 
-                        CommandBuffer.AddComponent(entity, new AssetConsumer.ResolvedAssetReference()
+                        CommandBuffer.AddComponent(entity, new AssetConsumer.DeclaredReference.Resolved()
                         {
                             Asset = asset.Entity
                         });

@@ -7,9 +7,9 @@ namespace EvilOctane.Entities.Internal
     {
         [TemporaryBakingType]
         [InternalBufferCapacity(0)]
-        public struct AssetReferenceBufferElement : IBufferElementData
+        public struct AssetDataBufferElement : IBufferElementData
         {
-            public AssetReferenceData Data;
+            public AssetData Data;
             public UnityObjectRef<UnityObject> Asset;
         }
     }
