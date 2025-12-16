@@ -39,23 +39,14 @@ namespace EvilOctane.Entities.Internal
 
             for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
-                Entity entity = entityPtr[entityIndex];
                 UnityObjectRef<AssetLibrary> assetLibrary = unityObjectPtrRO[entityIndex].Value;
+                _ = consumerTableRO.Value.TryGet(assetLibrary, out bool exists);
 
-                if (assetLibrary == new UnityObjectRef<AssetLibrary>())
+                if (!exists)
                 {
-                    // Null
+                    // Not referenced
+                    Entity entity = entityPtr[entityIndex];
                     toDestroyPtr[toDestroyCount++] = entity;
-                }
-                else
-                {
-                    _ = consumerTableRO.Value.TryGet(assetLibrary, out bool exists);
-
-                    if (!exists)
-                    {
-                        // Not referenced
-                        toDestroyPtr[toDestroyCount++] = entity;
-                    }
                 }
             }
 

@@ -223,7 +223,6 @@ namespace EvilOctane.Entities.Internal
                 newAssetList.AddNoResize(asset);
 
                 // Unity object
-
                 CommandBuffer.SetComponent(unfilteredChunkIndex, asset, new Asset.UnityObjectComponent()
                 {
                     Ref = kvPair.KeyRefRO,

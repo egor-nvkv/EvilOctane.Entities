@@ -12,17 +12,32 @@ namespace EvilOctane.Entities.Internal
         [ReadOnly]
         public BufferLookup<AssetLibrary.AssetBufferElement> AssetBufferLookup;
         [ReadOnly]
-        public ComponentLookup<Asset.UnityObjectComponent> UnityObjectLookup;
+        public ComponentLookup<AssetLibrary.UnityObjectComponent> AssetLibraryUnityObjectLookup;
 
-        public EntityCommandBuffer CommandBuffer;
+        [ReadOnly]
+        public ComponentLookup<Asset.UnityObjectComponent> AssetUnityObjectLookup;
 
         public void Execute(
-            Entity entity,
             in AssetConsumer.DeclaredReference assetReference,
-            in DynamicBuffer<AssetLibraryConsumer.AssetLibraryBufferElement> assetLibraryBuffer)
+            in DynamicBuffer<AssetLibraryConsumer.AssetLibraryBufferElement> assetLibraryBuffer,
+            ref AssetConsumer.DeclaredReference.Resolved assetReferenceResolved)
         {
+            // Reset
+            assetReferenceResolved.Asset = Entity.Null;
+
             foreach (AssetLibraryConsumer.AssetLibraryBufferElement assetLibrary in assetLibraryBuffer)
             {
+                if (!AssetLibraryUnityObjectLookup.TryGetComponent(assetLibrary.Entity, out AssetLibrary.UnityObjectComponent assetLibraryObj))
+                {
+                    // Component missing
+                    continue;
+                }
+                else if (assetReference.AssetLibrary != assetLibraryObj.Value)
+                {
+                    // Wrong asset library
+                    continue;
+                }
+
                 if (!AssetBufferLookup.TryGetBuffer(assetLibrary.Entity, out DynamicBuffer<AssetLibrary.AssetBufferElement> assetBuffer))
                 {
                     // Component missing
@@ -31,7 +46,7 @@ namespace EvilOctane.Entities.Internal
 
                 foreach (AssetLibrary.AssetBufferElement asset in assetBuffer)
                 {
-                    if (!UnityObjectLookup.TryGetComponent(asset.Entity, out Asset.UnityObjectComponent assetObj))
+                    if (!AssetUnityObjectLookup.TryGetComponent(asset.Entity, out Asset.UnityObjectComponent assetObj))
                     {
                         // Component missing
                         continue;
@@ -40,12 +55,7 @@ namespace EvilOctane.Entities.Internal
                     if (assetReference.Asset == assetObj.Ref)
                     {
                         // Found
-
-                        CommandBuffer.AddComponent(entity, new AssetConsumer.DeclaredReference.Resolved()
-                        {
-                            Asset = asset.Entity
-                        });
-
+                        assetReferenceResolved.Asset = asset.Entity;
                         return;
                     }
                 }

@@ -1,4 +1,5 @@
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -21,10 +22,11 @@ namespace EvilOctane.Entities.Internal
             ref AssetLibraryInstanceTable instanceTable = ref InstanceTableRef.GetRef();
             Pointer<Entity> instance = instanceTable.Value.GetOrAddNoResize(assetLibrary.Value, out bool added);
 
-            if (!added)
+            if (Hint.Unlikely(!added))
             {
                 // Duplicate
                 CommandBuffer.DestroyEntity(entity);
+                return;
             }
 
             instance.AsRef = entity;

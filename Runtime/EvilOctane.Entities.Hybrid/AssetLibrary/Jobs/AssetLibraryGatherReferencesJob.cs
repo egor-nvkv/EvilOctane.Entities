@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using Unity.Assertions;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -7,62 +9,68 @@ using Unity.Entities;
 namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
-    [WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)]
-    public partial struct AssetLibraryGatherReferencesJob : IJobEntity, IJobEntityChunkBeginEnd
+    public unsafe struct AssetLibraryGatherReferencesJob : IJobChunk
     {
+        [ReadOnly]
+        public ComponentTypeHandle<AdditionalEntityParent> AdditionalEntityParentTypeHandle;
+        [ReadOnly]
+        public ComponentTypeHandle<AssetLibraryConsumerAdditional.DeclaredReference> DeclaredReferenceTypeHandle;
+
         public NativeReference<AssetLibraryConsumerTable> ConsumerTableRef;
         public NativeReference<AssetLibraryRebakedSet> RebakedSetRef;
 
-        private bool rebaked;
-
-        public void Execute(
-            in AdditionalEntityParent parent,
-            in AssetLibraryConsumerAdditional.DeclaredReference reference)
+        public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
+            Assert.IsFalse(useEnabledMask);
+
+            AdditionalEntityParent* parentPtrRO = chunk.GetRequiredComponentDataPtrROTyped(ref AdditionalEntityParentTypeHandle);
+            AssetLibraryConsumerAdditional.DeclaredReference* referencePtrRO = chunk.GetRequiredComponentDataPtrROTyped(ref DeclaredReferenceTypeHandle);
+
             ref AssetLibraryConsumerTable consumerTable = ref ConsumerTableRef.GetRef();
-            Pointer<UnsafeList<Entity>> consumerList = consumerTable.Value.GetOrAddNoResize(reference.AssetLibrary, out bool added);
+            consumerTable.Value.EnsureSlack(chunk.Count);
 
-            Entity consumer = parent.Parent;
-
-            if (added)
+            for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
-                // List added
-                consumerList.AsRef = UnsafeListExtensions2.Create<Entity>(8, consumerTable.Value.Allocator);
-                consumerList.AsRef.AddNoResize(consumer);
-            }
-            else
-            {
-                // List exists
+                Entity consumer = parentPtrRO[entityIndex].Parent;
+                UnityObjectRef<AssetLibrary> assetLibrary = referencePtrRO[entityIndex].AssetLibrary;
 
-                if (!consumerList.AsRef.Contains(consumer))
+                Pointer<UnsafeList<Entity>> consumerList = consumerTable.Value.GetOrAddNoResize(assetLibrary, out bool added);
+
+                if (added)
                 {
-                    consumerList.AsRef.Add(consumer);
+                    // Create list
+                    consumerList.AsRef = UnsafeListExtensions2.Create<Entity>(8, consumerTable.Value.Allocator);
+                    consumerList.AsRef.AddNoResize(consumer);
+                }
+                else
+                {
+                    // List exists
+
+                    if (!consumerList.AsRef.Contains(consumer))
+                    {
+                        consumerList.AsRef.Add(consumer);
+                    }
                 }
             }
 
-            if (rebaked)
+            if (chunk.Has<AssetLibraryConsumerAdditional.RebakedTag>())
             {
                 // Rebaked
-                _ = RebakedSetRef.GetRef().Value.AddNoResize(reference.AssetLibrary);
+                AddRebaked(in chunk, referencePtrRO);
             }
         }
 
-        public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void AddRebaked(in ArchetypeChunk chunk, AssetLibraryConsumerAdditional.DeclaredReference* referencePtrRO)
         {
-            ConsumerTableRef.GetRef().Value.EnsureSlack(chunk.Count);
+            ref AssetLibraryRebakedSet rebakedSet = ref RebakedSetRef.GetRef();
+            rebakedSet.Value.EnsureSlack(chunk.Count);
 
-            rebaked = chunk.Has<AssetLibraryConsumerAdditional.RebakedTag>();
-
-            if (rebaked)
+            for (int entityIndex = 0; entityIndex != chunk.Count; ++entityIndex)
             {
-                RebakedSetRef.GetRef().Value.EnsureSlack(chunk.Count);
+                UnityObjectRef<AssetLibrary> assetLibrary = referencePtrRO[entityIndex].AssetLibrary;
+                _ = rebakedSet.Value.AddNoResize(assetLibrary);
             }
-
-            return true;
-        }
-
-        public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted)
-        {
         }
     }
 }

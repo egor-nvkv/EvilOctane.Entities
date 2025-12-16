@@ -11,7 +11,7 @@ namespace EvilOctane.Entities.Internal
 {
     [UpdateInGroup(typeof(AssetLibraryLifetimeSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-    public partial struct AssetLibraryLifetimeSystem : ISystem
+    public partial struct AssetLibrarySystem : ISystem
     {
         private EntityArchetype assetLibraryArchetype;
 
@@ -75,11 +75,21 @@ namespace EvilOctane.Entities.Internal
             consumerTableRef = new(new AssetLibraryConsumerTable(100, state.WorldUpdateAllocator), state.WorldUpdateAllocator);
             NativeReference<AssetLibraryRebakedSet> rebakedSetRef = new(new AssetLibraryRebakedSet(50, state.WorldUpdateAllocator), state.WorldUpdateAllocator);
 
-            new AssetLibraryGatherReferencesJob()
+            state.Dependency = new AssetLibraryGatherReferencesJob()
             {
+                AdditionalEntityParentTypeHandle = GetComponentTypeHandle<AdditionalEntityParent>(isReadOnly: true),
+                DeclaredReferenceTypeHandle = GetComponentTypeHandle<AssetLibraryConsumerAdditional.DeclaredReference>(isReadOnly: true),
+
                 ConsumerTableRef = consumerTableRef,
                 RebakedSetRef = rebakedSetRef
-            }.Schedule();
+            }.Schedule(
+                QueryBuilder()
+                .WithPresent<
+                    AdditionalEntityParent,
+                    AssetLibraryConsumerAdditional.DeclaredReference>()
+                .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)
+                .Build(),
+                state.Dependency);
 
             // Process rebaked
             state.Dependency = new AssetLibraryProcessRebakedJob()

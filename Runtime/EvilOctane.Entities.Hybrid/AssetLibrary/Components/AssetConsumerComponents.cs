@@ -11,6 +11,7 @@ namespace EvilOctane.Entities
         [BakingType]
         public struct DeclaredReference : IComponentData
         {
+            public UnityObjectRef<AssetLibrary> AssetLibrary;
             public UnityObjectRef<UnityObject> Asset;
 
             [BakingType]

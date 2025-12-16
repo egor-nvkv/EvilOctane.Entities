@@ -1,6 +1,5 @@
 using Unity.Entities;
 using UnityEngine;
-using static EvilOctane.Entities.Internal.AssetLibraryBakingAPI;
 
 namespace EvilOctane.Entities.Internal
 {
@@ -13,15 +12,20 @@ namespace EvilOctane.Entities.Internal
             // Rebaked tag
             AddComponent<AssetConsumer.RebakedTag>(entity);
 
+            AssetLibrary assetLibrary = DependsOn(authoring.assetLibrary);
             Object asset = DependsOn(authoring.asset);
 
-            if (DependsOnAssetLibrariesAndAssets(this) && asset)
+            if (assetLibrary && asset)
             {
-                // Asset reference
+                // Declared reference
                 AddComponent(entity, new AssetConsumer.DeclaredReference()
                 {
-                    Asset = authoring.asset
+                    AssetLibrary = assetLibrary,
+                    Asset = asset
                 });
+
+                // Resolved reference
+                AddComponent<AssetConsumer.DeclaredReference.Resolved>(entity);
             }
         }
     }

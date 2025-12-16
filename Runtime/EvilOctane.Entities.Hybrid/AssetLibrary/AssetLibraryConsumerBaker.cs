@@ -6,6 +6,7 @@ namespace EvilOctane.Entities.Internal
     {
         public override void Bake(AssetLibraryConsumerAuthoring authoring)
         {
+            // Asset libraries
             _ = GetComponents<AssetLibraryReferenceAuthoring>();
 
             Entity entity = GetEntityWithoutDependency();

@@ -9,10 +9,10 @@ using UnityObject = UnityEngine.Object;
 
 namespace EvilOctane.Entities.Internal
 {
-    [UpdateAfter(typeof(AssetLibraryLifetimeSystem))]
+    [UpdateAfter(typeof(AssetLibrarySystem))]
     [UpdateInGroup(typeof(AssetLibraryLifetimeSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-    public unsafe partial struct AssetLibraryLifetimeSystemManaged : ISystem
+    public unsafe partial struct AssetLibrarySystemManaged : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {

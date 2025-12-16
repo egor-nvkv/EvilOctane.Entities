@@ -9,7 +9,7 @@ namespace EvilOctane.Entities.Internal
 {
     [BurstCompile]
     [WithPresent(typeof(AssetLibraryConsumer.RebakedTag))]
-    [WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)]
+    [WithOptions(EntityQueryOptions.IncludePrefab)]
     public partial struct AssetLibraryUpdateReferencesJob : IJobEntity
     {
         [ReadOnly]
@@ -37,6 +37,7 @@ namespace EvilOctane.Entities.Internal
 
                 if (!exists)
                 {
+                    // Bad reference
                     continue;
                 }
 

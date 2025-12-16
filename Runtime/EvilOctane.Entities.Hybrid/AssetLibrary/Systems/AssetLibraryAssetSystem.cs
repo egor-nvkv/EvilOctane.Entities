@@ -61,17 +61,13 @@ namespace EvilOctane.Entities.Internal
 
         private void ResolveReferences(ref SystemState state)
         {
-            EntityCommandBuffer commandBuffer = new(state.WorldUpdateAllocator);
-
+            // Resolve references
             new AssetLibraryResolveAssetReferencesJob()
             {
                 AssetBufferLookup = GetBufferLookup<AssetLibrary.AssetBufferElement>(isReadOnly: true),
-                UnityObjectLookup = GetComponentLookup<Asset.UnityObjectComponent>(isReadOnly: true),
-                CommandBuffer = commandBuffer
-            }.Schedule();
-
-            state.CompleteDependency();
-            commandBuffer.Playback(state.EntityManager);
+                AssetLibraryUnityObjectLookup = GetComponentLookup<AssetLibrary.UnityObjectComponent>(isReadOnly: true),
+                AssetUnityObjectLookup = GetComponentLookup<Asset.UnityObjectComponent>(isReadOnly: true)
+            }.ScheduleParallel();
         }
     }
 }

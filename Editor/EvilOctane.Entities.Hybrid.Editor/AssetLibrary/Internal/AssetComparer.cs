@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityObject = UnityEngine.Object;
@@ -20,6 +21,15 @@ namespace EvilOctane.Entities.Editor
             {
                 // Both are null
                 return 0;
+            }
+
+            Type typeX = x.GetType();
+            Type typeY = y.GetType();
+
+            if (typeX != typeY)
+            {
+                // Order by type
+                return typeX.AssemblyQualifiedName.CompareTo(typeY.AssemblyQualifiedName);
             }
 
             string pathX = AssetDatabase.GetAssetPath(x.GetEntityId());
