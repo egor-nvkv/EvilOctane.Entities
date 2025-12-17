@@ -1,7 +1,6 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using Unity.Properties;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -15,14 +14,16 @@ namespace EvilOctane.Entities.Editor
         [SerializeField]
         private AssetLibrary target;
 
+        private SerializedObject serializedObject;
+        private SerializedProperty assetsSerializedProperty;
+
         private Label titleLabel;
         private ListView assetListView;
 
         [MenuItem("Window/Evil Octane/Asset Library Editor")]
         public static void ShowEditorWindow()
         {
-            AssetLibraryEditorWindow editorWindow = GetWindow<AssetLibraryEditorWindow>();
-            editorWindow.titleContent = new GUIContent("Asset Library Editor");
+            AssetLibraryEditorWindow editorWindow = GetWindow<AssetLibraryEditorWindow>("Asset Library Editor");
 
             editorWindow.minSize = new Vector2(480, 180);
             editorWindow.maxSize = new Vector2(1920, 720);
@@ -71,39 +72,65 @@ namespace EvilOctane.Entities.Editor
             }
         }
 
-        private static void RemoveNullAndSortAssets(List<UnityObject> assets, List<UnityObject> assetsToAdd = null)
+        private static void AddAndSortAssets(List<UnityObject> assets, List<UnityObject> assetsToAdd = null)
         {
             SortedSet<UnityObject> assetSet = new(new AssetComparer());
-            AddNonNull(assetSet, assets);
+            AddAssets(assetSet, assets);
 
             if (assetsToAdd != null)
             {
-                AddNonNull(assetSet, assetsToAdd);
+                AddAssets(assetSet, assetsToAdd);
             }
 
             assets.Clear();
             assets.AddRange(assetSet);
         }
 
-        private static void AddNonNull(SortedSet<UnityObject> assetSet, List<UnityObject> assets)
+        private static void AddAssets(SortedSet<UnityObject> assetSet, List<UnityObject> assets)
         {
             foreach (UnityObject asset in assets)
             {
-                if (asset)
+                if (asset is null)
                 {
-                    if (asset is AssetLibrary)
-                    {
-                        Debug.LogWarning("Nesting asset libraries is not supported.", asset);
-                        continue;
-                    }
-
-                    _ = assetSet.Add(asset);
+                    continue;
                 }
+                else if (asset is AssetLibrary)
+                {
+                    Debug.LogWarning("Nesting asset libraries is not supported.", asset);
+                    continue;
+                }
+
+                _ = assetSet.Add(asset);
+            }
+        }
+
+        private static VisualElement AssetListViewMakeItem()
+        {
+            ObjectField assetField = new();
+            assetField.Q<VisualElement>(className: "unity-object-field__selector").RemoveFromHierarchy();
+
+            assetField.RegisterCallback((DragEnterEvent @event) => @event.StopPropagation(), TrickleDown.TrickleDown);
+            assetField.RegisterCallback((DragUpdatedEvent @event) => @event.StopPropagation(), TrickleDown.TrickleDown);
+            assetField.RegisterCallback((DragPerformEvent @event) => @event.StopPropagation(), TrickleDown.TrickleDown);
+
+            return assetField;
+        }
+
+        private static void StopDelete(KeyDownEvent @event)
+        {
+            if (@event.keyCode is KeyCode.Delete or KeyCode.Backspace)
+            {
+                @event.StopImmediatePropagation();
             }
         }
 
         private void CreateGUI()
         {
+            rootVisualElement.style.alignItems = Align.Stretch;
+
+            rootVisualElement.RegisterCallback<DragUpdatedEvent>(OnDragUpdated, TrickleDown.TrickleDown);
+            rootVisualElement.RegisterCallback<DragPerformEvent>(OnDragPerform, TrickleDown.TrickleDown);
+
             titleLabel = new Label()
             {
                 style =
@@ -115,125 +142,40 @@ namespace EvilOctane.Entities.Editor
 
             rootVisualElement.Add(titleLabel);
 
-            assetListView = new ListView
+            assetListView = new ListView()
             {
-                bindingSourceSelectionMode = BindingSourceSelectionMode.AutoAssign,
+                bindingSourceSelectionMode = BindingSourceSelectionMode.Manual,
                 virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
-                selectionType = SelectionType.Multiple,
-                allowAdd = false,
-                //allowRemove = true,
-                allowRemove = false,
-                showBoundCollectionSize = true,
-                //showAddRemoveFooter = true,
-                showAddRemoveFooter = false,
+                selectionType = SelectionType.None,
+
+                showFoldoutHeader = false,
+                showBoundCollectionSize = false,
                 showBorder = true,
-                style = { flexGrow = 1 },
-                makeItem = () =>
+
+                allowAdd = false,
+                allowRemove = false,
+                showAddRemoveFooter = false,
+
+                makeItem = AssetListViewMakeItem,
+                bindItem = AssetListViewBindItem,
+
+                style =
                 {
-                    ObjectField objectField = new()
-                    {
-                        allowSceneObjects = false
-                    };
-
-                    _ = objectField.RegisterValueChangedCallback((ChangeEvent<UnityObject> changeEvent) =>
-                    {
-                        //if (!target)
-                        //{
-                        //    return;
-                        //}
-                        //
-                        //if (changeEvent.newValue)
-                        //{
-                        //    // Replace
-                        //    int index = target.assets.IndexOf(changeEvent.previousValue);
-
-                        //    if (index >= 0)
-                        //    {
-                        //        target.assets[index] = changeEvent.newValue;
-                        //    }
-                        //}
-                        //else
-                        //{
-                        //    // Remove
-                        //    _ = target.assets.Remove(changeEvent.previousValue);
-                        //}
-
-                        //RemoveNullAndSortAssets(target.assets);
-                        //EditorUtility.SetDirty(target);
-                    });
-
-                    return objectField;
+                    flexGrow = 1
                 }
             };
 
-            assetListView.bindItem = (VisualElement element, int index) =>
-            {
-                ((ObjectField)element).value = assetListView.itemsSource[index] as UnityObject;
-            };
-
-            //assetListView.onRemove = (BaseListView listView) =>
-            //{
-            //    if (!target)
-            //    {
-            //        return;
-            //    }
-
-            //    List<int> selectedIndices = new(listView.selectedIndices);
-
-            //    if (selectedIndices.Count == 0)
-            //    {
-            //        // Nothing selected
-            //        return;
-            //    }
-
-            //    int oldAssetCount = target.assets.Count;
-            //    List<UnityObject> newAssets = new(oldAssetCount);
-
-            //    for (int index = 0; index != oldAssetCount; ++index)
-            //    {
-            //        if (!selectedIndices.Contains(index))
-            //        {
-            //            // Keep
-            //            newAssets.Add(target.assets[index]);
-            //        }
-            //    }
-
-            //    // Remove
-            //    Undo.RecordObject(target, "Remove assets");
-            //    target.assets = newAssets;
-
-            //    EditorUtility.SetDirty(target);
-            //    listView.Rebuild();
-            //};
-
-            assetListView.RegisterCallback<DragUpdatedEvent>(OnDragUpdate);
-            assetListView.RegisterCallback<DragPerformEvent>(OnDragPerform);
+            assetListView.RegisterCallback<KeyDownEvent>(StopDelete, TrickleDown.TrickleDown);
 
             rootVisualElement.Add(assetListView);
 
-            Button clearButton = new()
+            Button clearButton = new(OnClearAssets)
             {
                 text = "Clear",
                 style =
                 {
-                    alignSelf = Align.Center,
                     fontSize = 18
                 }
-            };
-
-            clearButton.clicked += () =>
-            {
-                if (!target)
-                {
-                    return;
-                }
-
-                // Clear
-                Undo.RecordObject(target, "Clear assets");
-                target.assets.Clear();
-
-                EditorUtility.SetDirty(target);
-                assetListView.Rebuild();
             };
 
             rootVisualElement.Add(clearButton);
@@ -247,24 +189,15 @@ namespace EvilOctane.Entities.Editor
 
         private void OnSelectionChange()
         {
-            // Set target
-
             UnityObject[] objects = Selection.objects;
 
             if (objects.Length == 0)
             {
                 // Deselect
-                target = null;
-
-                titleLabel.ClearBindings();
-                titleLabel.text = string.Empty;
-
-                assetListView.itemsSource = null;
-                assetListView.Clear();
-
+                ResetTarget();
                 return;
             }
-            else if (target && objects.Contains(target))
+            else if (target && Array.IndexOf(objects, target) >= 0)
             {
                 // Old target still selected
                 return;
@@ -274,7 +207,7 @@ namespace EvilOctane.Entities.Editor
             {
                 if (obj is AssetLibrary assetLibrary)
                 {
-                    // New target
+                    // Set target
                     target = assetLibrary;
                     OnTargetSet();
                     break;
@@ -284,29 +217,40 @@ namespace EvilOctane.Entities.Editor
 
         private void OnTargetSet()
         {
-            titleLabel.SetBinding("text", new DataBinding
-            {
-                dataSource = new NameBinding() { Target = target },
-                dataSourcePath = new PropertyPath(nameof(NameBinding.Name)),
-                bindingMode = BindingMode.ToTarget,
-                updateTrigger = BindingUpdateTrigger.OnSourceChanged
-            });
+            serializedObject = new SerializedObject(target);
+            assetsSerializedProperty = serializedObject.FindProperty(nameof(AssetLibrary.assets));
 
-            assetListView.itemsSource = target.assets;
+            titleLabel.BindProperty(serializedObject.FindProperty("m_Name"));
+            assetListView.BindProperty(assetsSerializedProperty);
         }
 
-        private void OnDragUpdate(DragUpdatedEvent @event)
+        private void ResetTarget()
+        {
+            target = null;
+            serializedObject = null;
+            assetsSerializedProperty = null;
+
+            titleLabel.Unbind();
+            titleLabel.text = string.Empty;
+
+            assetListView.Unbind();
+        }
+
+        private void OnDragUpdated(DragUpdatedEvent @event)
         {
             if (!target)
             {
                 return;
             }
 
-            if (DragAndDrop.entityIds.Length != 0)
+            if (DragAndDrop.entityIds.Length == 0)
             {
-                DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
-                @event.StopPropagation();
+                // Nothing selected
+                return;
             }
+
+            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+            @event.StopPropagation();
         }
 
         private void OnDragPerform(DragPerformEvent @event)
@@ -317,13 +261,15 @@ namespace EvilOctane.Entities.Editor
             }
 
             UnityObject[] draggedObjects = DragAndDrop.objectReferences;
-            DragAndDrop.AcceptDrag();
 
             if (draggedObjects.Length == 0)
             {
                 // Nothing selected
                 return;
             }
+
+            DragAndDrop.AcceptDrag();
+            @event.StopPropagation();
 
             List<UnityObject> assetsToAdd = new(draggedObjects.Length);
 
@@ -335,28 +281,29 @@ namespace EvilOctane.Entities.Editor
                 }
             }
 
-            if (assetsToAdd.Count == 0)
+            // Add assets
+            Undo.RecordObject(target, $"Add Assets to {target.name}");
+            AddAndSortAssets(target.assets, assetsToAdd);
+            EditorUtility.SetDirty(target);
+        }
+
+        private void OnClearAssets()
+        {
+            if (!target)
             {
                 return;
             }
 
-            // Update asset library
-
-            Undo.RecordObject(target, "Register assets");
-            RemoveNullAndSortAssets(target.assets, assetsToAdd);
-
+            // Clear assets
+            Undo.RecordObject(target, $"Clear Assets in {target.name}");
+            target.assets.Clear();
             EditorUtility.SetDirty(target);
-            assetListView.Rebuild();
-
-            @event.StopPropagation();
         }
 
-        private sealed class NameBinding
+        private void AssetListViewBindItem(VisualElement visualElement, int index)
         {
-            public UnityObject Target;
-
-            [CreateProperty(ReadOnly = true)]
-            public string Name => Target ? Target.name : string.Empty;
+            SerializedProperty item = assetListView.itemsSource[index] as SerializedProperty;
+            ((ObjectField)visualElement).BindProperty(item);
         }
     }
 }
